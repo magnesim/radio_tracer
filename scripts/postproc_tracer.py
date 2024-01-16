@@ -2,24 +2,34 @@ import numpy as np
 from datetime import datetime, timedelta
 import opendrift 
 #from opendrift.models.oceandrift import OceanDrift
-from opendrift.readers import reader_netCDF_CF_generic 
-from release_descriptions import releases_sellafield, releases_lahague
+#from opendrift.readers import reader_netCDF_CF_generic 
+from release_descriptions import monthly_release, get_daily_weights, get_seed_date
 import matplotlib.pyplot as plt 
 
 
 
 
 
-#o = OceanDrift(loglevel=20, seed=0)
-#
 
+# ###########################################################################
+# Set the input file
 
-infn = '/home/magnes/projects/CERAD/RadioTracer/model_output/opendrift_tracers_2000-2003.nc'
 #infn = '/home/magnes/projects/CERAD/RadioTracer/model_output/opendrift_tracers.nc'
+infn = '/home/magnes/projects/CERAD/RadioTracer/model_output/opendrift_tracers_2000-2003.nc'
+#infn = '/home/magnes/projects/CERAD/RadioTracer/model_output/opendrift_tracers_1994-1999.nc'
 
-d0 = datetime(2000,1,1)
-d1 = datetime(2003,12,31)
 
+# Select isotopes
+isotops  = [
+            '129I', 
+            '236U',
+            ]
+
+# Size (m) of horisontal pixels for concentration 
+psize   = 40000
+
+# ###########################################################################
+# Define/edit boxes for analysis (time series etc) here
 
 box1_lon = [5, 7]        # Denmark west coast
 box1_lat = [53, 55]
@@ -42,12 +52,6 @@ boxes_org = [
         ]
 
 
-
-isotops  = [
-            '129I', 
-            '236U',
-            ]
-
 # if False:
 #     o.io_import_file(infn)
 
@@ -61,38 +65,133 @@ isotops  = [
 
 
 
+
+# ###########################################################################
+# Read Opendrift output file as xarray
+
 oa = opendrift.open_xarray(infn)
-print(oa.ds.trajectory, len(oa.ds.trajectory))
-ntra = len(oa.ds.trajectory)
+#print(oa.ds.trajectory, len(oa.ds.trajectory))
+#ntra = len(oa.ds.trajectory)
 
 
+
+
+
+
+
+# ###########################################################################
+# Get the time period (datesfromfile), number of trajectories (ntraj)
+# and their corresponding seeding date (seed_dates) from opendrft output file (infn)
+# Note: First all Sellafield trajectories, then all LaHague trajectories
+
+[seed_dates, datesfromfile, ntraj] = get_seed_date(infn)
+[d0,d1] = datesfromfile
+
+# Compute number of days and the number of released particles each day
+# Assume equal number for each location 
+ndays = int((d1 - d0).total_seconds() / 86400 + 1) 
+print(f'ndays: {ndays}, first day: {d0}, last day: {d1}',ndays)
+date_arr = [d0 + timedelta(days=item) for item in range(ndays)] 
+ntrajperday = np.zeros(ndays)
+for ii,dd in enumerate(date_arr):
+    ntrajperday[ii] = np.sum(seed_dates[:ntraj//2]==dd)
+
+
+
+print(date_arr, len(date_arr))
+print(ntrajperday, len(ntrajperday))
+
+
+
+# ###############################################################################
+# Store the histograms 
 h_save = []
 
-# figure for release data
+# Create figure for release data
 fig0=plt.figure(figsize=[10,7])
 ax=plt.subplot()
 
+
+
+
+
+# ##############################################################################
+# Run through loop over the isotopes, 
+# Plot figures and store necessary data 
+
 for isotop in isotops:
     boxes=boxes_org.copy()
-    [rel_sf_t, rel_sf_y] = releases_sellafield(isotop=isotop, dates=[d0,d1], number=ntra/2)
-    [rel_lh_t, rel_lh_y] = releases_lahague(isotop=isotop, dates=[d0,d1], number=ntra/2)
-    release = np.concatenate((rel_sf_y, rel_lh_y))
 
-    # plot release data
-    ax.plot(release,label=isotop)
+    # Extract the mothly releases from SF and LH
+    [rel_sf_t, rel_sf_y] = monthly_release(isotop, dates=[d0,d1], location='Sellafield') 
+    [rel_lh_t, rel_lh_y] = monthly_release(isotop, dates=[d0,d1], location='LaHague') 
+
+
+
+    # Get the daily weighted release from SF and LH
+    [date_arrSF, weightsSF, total_atomsSF] = get_daily_weights( release=[rel_sf_t, rel_sf_y], dates=[d0,d1] )
+    [date_arrLH, weightsLH, total_atomsLH] = get_daily_weights( release=[rel_lh_t, rel_lh_y], dates=[d0,d1] )
+
+
+    # Get the daily weights,
+    # scaled by number of trajectories released each day in opendrift simulation
+    weightsSF = weightsSF / ntrajperday
+    weightsLH = weightsLH / ntrajperday
+
+    # Get the weights per trajectory,
+    # scaled by the total release from SF and LH
+    trajweightsSF = np.zeros(ntraj//2)
+    trajweightsLH = np.zeros(ntraj//2)
+    for ii in range(ntraj//2):
+        dd = seed_dates[ii]
+        idx = date_arr.index(dd)
+        trajweightsSF[ii] = weightsSF[idx] * total_atomsSF 
+        trajweightsLH[ii] = weightsLH[idx] * total_atomsLH
+
+    # Concatenate the releases 
+    # and trajectory weights
+    # trajweights is a list with length of the total number of trajectories,
+    # containing the number of atoms corresponding to each trajectory
+    release = np.concatenate((rel_sf_y, rel_lh_y))
+    dates = np.concatenate((rel_sf_t, rel_lh_t))
+    trajweights = np.concatenate((trajweightsSF, trajweightsLH))
+
+
+
+
+
+    # #######################
+    # plot number of atoms per trajectory, 
+    # first SF trajectories, the LH trajectories
+    ax.plot(trajweights,label=isotop)
     ax.legend()
+    ax.grid()
     fn = '../plots/timeseries_releases.png'
     fig0.savefig(fname=fn)
 
-    h  = oa.get_histogram(pixelsize_m=40000, weights=release)
 
-#    print (h)
-    h=h.sel( time=slice(d0, d1) )
-#    print(h)
-    
+
+
+
+    # #########################
+    # Use opendrift function to compute horizontal histograms 
+    h  = oa.get_histogram(pixelsize_m=psize, weights=trajweights)
+    # Scale by pixel volume to get concentration (atoms/m3)
+    h = h / (psize*psize*100)
+
+
+    # Filter on time
+    h = h.sel( time=slice(d0, d1) )
+
+
+    # Filter on depth
+    #h = h.sel( z=slice(-10,0) )
 #    rw = h.sum(dim='origin_marker')
 
 
+
+
+    # ##########################
     # Plot time series in boxes
     if len(boxes)>3:
         figsize=[9,15]
@@ -110,6 +209,7 @@ for isotop in isotops:
         t1.isel(origin_marker=1).plot(label=isotop+' LH', ax=ax1)
         t1.sum(dim='origin_marker').plot(label='Total '+isotop, linestyle='--', ax=ax1)
 
+        ax1.grid()
         ax1.legend()
         ax1.set_title(ibox['text'])
 
@@ -129,15 +229,15 @@ for isotop in isotops:
 
     b=h.isel(origin_marker=0).sum(dim='time')
     fn = '../plots/tracer_sellaf_{}.png'.format(isotop)
-    oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=0, vmax=8.e5, clabel='Concentration '+isotop, filename=fn)
+    oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=0, vmax=8.e14, clabel='Concentration '+isotop, filename=fn)
 
     b=h.isel(origin_marker=1).sum(dim='time')
     fn = '../plots/tracer_lahague_{}.png'.format(isotop)
-    oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=0, vmax=8.e5, clabel='Concentration '+isotop, filename=fn)
+    oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=0, vmax=8.e14, clabel='Concentration '+isotop, filename=fn)
 
     b=h.sum(dim='origin_marker').sum(dim='time')
     fn = '../plots/tracer_total_{}.png'.format(isotop)
-    oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=0, vmax=8.e5, clabel='Concentration '+isotop, filename=fn)
+    oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=0, vmax=8.e14, clabel='Concentration '+isotop, filename=fn)
 
 
     if False:
@@ -156,6 +256,12 @@ for isotop in isotops:
 
 
 
+
+
+
+# #################################################################
+# Compute and plot ratios between the isotopes
+        
 if not len(h_save)==0:
     ratstr = isotops[0]+'/'+isotops[1]
     print('Compute isotope ratio '+ratstr)
