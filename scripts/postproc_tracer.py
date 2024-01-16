@@ -98,8 +98,6 @@ for ii,dd in enumerate(date_arr):
 
 
 
-print(date_arr, len(date_arr))
-print(ntrajperday, len(ntrajperday))
 
 
 
