@@ -28,6 +28,14 @@ isotops  = [
 # Size (m) of horisontal pixels for concentration 
 psize   = 40000
 
+
+# Filter out particles deeper than zmin
+# this number will also be included in the file names 
+zmin = 10
+tag = '_{}m'.format(zmin)
+
+
+
 # ###########################################################################
 # Define/edit boxes for analysis (time series etc) here
 
@@ -75,7 +83,9 @@ oa = opendrift.open_xarray(infn)
 
 
 
-
+# Mask on depth 
+# deeper than zmin will be masked out
+oa.ds = oa.ds.where(oa.ds.z > -zmin)
 
 
 
@@ -175,16 +185,12 @@ for isotop in isotops:
     # Use opendrift function to compute horizontal histograms 
     h  = oa.get_histogram(pixelsize_m=psize, weights=trajweights)
     # Scale by pixel volume to get concentration (atoms/m3)
-    h = h / (psize*psize*100)
+    h = h / (psize*psize*zmin)
 
 
     # Filter on time
     h = h.sel( time=slice(d0, d1) )
 
-
-    # Filter on depth
-    #h = h.sel( z=slice(-10,0) )
-#    rw = h.sum(dim='origin_marker')
 
 
 
@@ -211,7 +217,7 @@ for isotop in isotops:
         ax1.legend()
         ax1.set_title(ibox['text'])
 
-    fn1 = '../plots/timeseries_{}.png'.format(isotop)
+    fn1 = '../plots/timeseries_{}{}.png'.format(isotop,tag)
     fig1.savefig(fname=fn1)
 
 
@@ -226,15 +232,15 @@ for isotop in isotops:
 
 
     b=h.isel(origin_marker=0).sum(dim='time')
-    fn = '../plots/tracer_sellaf_{}.png'.format(isotop)
+    fn = '../plots/tracer_sellaf_{}{}.png'.format(isotop,tag)
     oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=0, vmax=8.e14, clabel='Concentration '+isotop, filename=fn)
 
     b=h.isel(origin_marker=1).sum(dim='time')
-    fn = '../plots/tracer_lahague_{}.png'.format(isotop)
+    fn = '../plots/tracer_lahague_{}{}.png'.format(isotop,tag)
     oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=0, vmax=8.e14, clabel='Concentration '+isotop, filename=fn)
 
     b=h.sum(dim='origin_marker').sum(dim='time')
-    fn = '../plots/tracer_total_{}.png'.format(isotop)
+    fn = '../plots/tracer_total_{}{}.png'.format(isotop,tag)
     oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=0, vmax=8.e14, clabel='Concentration '+isotop, filename=fn)
 
 
