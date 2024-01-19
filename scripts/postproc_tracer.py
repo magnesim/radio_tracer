@@ -174,6 +174,7 @@ for isotop in isotops:
     ax.plot(trajweights,label=isotop)
     ax.legend()
     ax.grid()
+    ax.set_yscale('log')
     fn = '../plots/timeseries_releases.png'
     fig0.savefig(fname=fn)
 
