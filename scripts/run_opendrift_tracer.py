@@ -1,10 +1,10 @@
 import numpy as np
 from datetime import datetime, timedelta
 from opendrift.models.oceandrift import OceanDrift
-#from opendrift.readers import reader_netCDF_CF_generic 
+from opendrift.readers import  reader_ROMS_native, reader_netCDF_CF_generic 
 
 import copernicus_marine_client as copernicusmarine
-from opendrift.readers.reader_netCDF_CF_generic import Reader
+#from opendrift.readers.reader_netCDF_CF_generic import Reader
 
 
 
@@ -27,13 +27,13 @@ lat_LH = 49.744
 # Input parameters
 # 
 outdir = '/home/magnes/projects/CERAD/RadioTracer/model_output'
-time_start = datetime(2003,1,1,0)
-time_end   = datetime(2003,12,8,0)
-#time_end   = datetime(2003,12,31,0)
+time_start = datetime(1993,1,1,0)
+time_end   = datetime(1997,1,1,0)
+#time_end   = datetime(1993,7,10,0)
 
 simlen_h   = (time_end - time_start).total_seconds() / 3600  # total time in hours
 time_step  = 3600*4     # in seconds
-ntraj      = 10000      # total number of trajectories
+ntraj      = 26000      # total number of trajectories
 
 
 
@@ -45,7 +45,18 @@ ntraj      = 10000      # total number of trajectories
 
 o = OceanDrift(loglevel=20, seed=0)
 #reader_cmems = reader_netCDF_CF_generic.Reader('https://my.cmems-du.eu/thredds/dodsC/cmems_mod_glo_phy_my_0.083_P1D-m')
-                                
+
+
+
+
+
+
+
+
+# #################
+# R E A D E R S
+# ocean current data
+
 
 #o.add_readers_from_list([
     #'https://nrt.cmems-du.eu/thredds/dodsC/cmems_mod_glo_phy-cur_anfc_0.083deg_PT6H-i',
@@ -57,14 +68,32 @@ o = OceanDrift(loglevel=20, seed=0)
 
 #o.add_reader([reader_cmems])
 
+r_svim  = reader_ROMS_native.Reader('https://thredds.met.no/thredds/dodsC/nansen-legacy-ocean/svim_daily_agg')
 
-ds = copernicusmarine.open_dataset(
+ds_cmems   = copernicusmarine.open_dataset(
 #    dataset_id='cmems_mod_glo_phy_anfc_merged-uv_PT1H-i',
-    dataset_id='cmems_mod_glo_phy_my_0.083_P1D-m',
-    username='<your cmems username>', password='<your cmems password>')
+            dataset_id='cmems_mod_glo_phy_my_0.083deg_P1D-m',
+            username='<your cmems username>', password='<your cmems password>'
+            )
 
-r = Reader(ds)
-o.add_reader(r)
+ds_cmems_int   = copernicusmarine.open_dataset(
+#    dataset_id='cmems_mod_glo_phy_anfc_merged-uv_PT1H-i',
+            dataset_id='cmems_mod_glo_phy_myint_0.083deg_P1D-m',
+            username='<your cmems username>', password='<your cmems password>'
+            )
+
+r_cmems = reader_netCDF_CF_generic.Reader(ds_cmems)
+r_cmems_int = reader_netCDF_CF_generic.Reader(ds_cmems_int)
+
+
+
+
+# Add the selected readers in prioritized order
+o.add_reader([
+              r_svim, 
+              r_cmems,
+              #r_cmems_int,
+              ])
 
 
 # Adjusting some configuration
@@ -77,6 +106,9 @@ o.set_config('general:coastline_action', 'previous')
 # Vertical mixing requires fast time step
 o.set_config('vertical_mixing:timestep', 900.) # seconds
 o.set_config('drift:horizontal_diffusivity', 30.)
+
+o.set_config('drift:deactivate_north_of', 80.1)
+o.set_config('drift:deactivate_east_of', 26.)
 
 o.list_configspec()
 
