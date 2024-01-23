@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 #infn = '/home/magnes/projects/CERAD/RadioTracer/model_output/opendrift_tracers.nc'
 #infn = '/home/magnes/projects/CERAD/RadioTracer/model_output/opendrift_tracers_2000-2003.nc'
 infn = '/home/magnes/projects/CERAD/RadioTracer/model_output/opendrift_tracers_1993-1997_svim.nc'
+#infn = '/home/magnes/projects/CERAD/RadioTracer/model_output/opendrift_tracers_1993-1997_cmems.nc'
 
 
 # Select isotopes
@@ -173,9 +174,9 @@ for isotop in isotops:
     # first SF trajectories, the LH trajectories
     ax.plot(trajweights,label=isotop)
     ax.legend()
-    ax.grid()
     ax.set_yscale('log')
-    fn = '../plots/timeseries_releases.png'
+    ax.grid()
+    fn = '../plots/releases_ts{}.png'.format(tag)
     fig0.savefig(fname=fn)
 
 
@@ -290,7 +291,7 @@ if not len(h_save)==0:
             ax.legend()
             ax.grid()
         plt.suptitle(ibox['text'])
-        fn = '../plots/timeseries_'+ibox['text']+'.png'
+        fn = '../plots/location_ts_{}{}.png'.format(ibox['text'].replace(' ',''), tag)
         plt.savefig(fn)
         
 
@@ -316,12 +317,12 @@ if not len(h_save)==0:
 #    ratio = ratio.isel(time=-1)
     ratio = np.log10(ratio)
 
-    fn = '../plots/r1.png'
+    fn = '../plots/map_isotope1_{}{}.png'.format(isotops[0], tag)
     oa.plot(background=r1.where(r1>0), fast=True, show_elements=False, vmin=0, vmax=20000, clabel = 'r1 '+isotops[0], filename=fn)
-    fn = '../plots/r2.png'
+    fn = '../plots/map_isotope2_{}{}.png'.format(isotops[1], tag)
     oa.plot(background=r2.where(r2>0), fast=True, show_elements=False, vmin=0, vmax=6000, clabel = 'r2 '+isotops[1], filename=fn)
 
-    fn = '../plots/ratio.png'
+    fn = '../plots/map_ratio{}.png'.format(tag)
     oa.plot(background=ratio.where(ratio>-19), fast=True, show_elements=False, vmin=-2, vmax=3, clabel = 'log10 ratio '+ratstr, filename=fn)
 
 
