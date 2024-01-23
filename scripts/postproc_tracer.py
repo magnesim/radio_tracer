@@ -6,7 +6,7 @@ import opendrift
 from release_descriptions import monthly_release, get_daily_weights, get_seed_date
 import matplotlib.pyplot as plt 
 
-
+import cartopy.crs as ccrs
 
 
 
@@ -34,7 +34,7 @@ psize   = 40000
 # this number will also be included in the file names 
 zmin = 100
 tag = '_{}m'.format(zmin)
-
+tag = tag+''   # here, you can add specific name tag that will appear in all file names
 
 
 # ###########################################################################
@@ -72,6 +72,25 @@ boxes_org = [
 #                 )
 
 
+
+
+# plot the boxes on a map
+fig = plt.figure()
+ax=plt.subplot(projection=ccrs.Orthographic(5,68))
+proj_pp=ccrs.PlateCarree()
+for ibox in boxes_org:
+    [lon1, lon2] = ibox['lon']
+    [lat1, lat2] = ibox['lat']
+    box_coords = [(lon1,lat1), (lon2,lat1), (lon2,lat2), (lon1,lat2), (lon1,lat1)]
+    ax.plot(*zip(*box_coords), transform=proj_pp, color='red', linewidth=2 )
+    ax.text(lon2, lat2, ibox['text'], horizontalalignment = 'right', transform=proj_pp, zorder=5)
+ax.set_extent([-10.0, 20, 50, 80], proj_pp)
+ax.coastlines()
+ax.gridlines()
+ax.stock_img()
+
+fn='../plots/map_locations{}.png'.format(tag)
+plt.savefig(fn)
 
 
 
