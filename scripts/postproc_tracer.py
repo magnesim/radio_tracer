@@ -134,6 +134,7 @@ for ii,dd in enumerate(date_arr):
 # ###############################################################################
 # Store the histograms 
 h_save = []
+hage_save = []
 
 # Create figure for release data
 fig0=plt.figure(figsize=[10,7])
@@ -211,8 +212,7 @@ for isotop in isotops:
 
     # Filter on time
     h = h.sel( time=slice(d0, d1) )
-
-
+#    h = h.sel( time=slice(d1-timedelta(days=365), d1) )
 
 
 
@@ -245,6 +245,35 @@ for isotop in isotops:
     oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=0, vmax=8.e14, clabel='Concentration '+isotop, filename=fn)
 
 
+
+    if isotop == isotops[0]:
+        # ######################
+        # Plot maps of tracer age integrated over time
+        # This is similar for both radionuclides, and 
+        # is only nesecary to do for the first radionuclide
+        hage  = oa.get_histogram(pixelsize_m=psize, weights=oa.ds['age_seconds'], density=False)
+        num   = oa.get_histogram(pixelsize_m=psize, weights=None, density=False)
+        hage = hage / (86400*356)    # years
+        hage = hage / num
+#        hage = hage.sel( time=slice(d1-timedelta(days=365), d1))
+        maxage=5
+
+        # Sellafield releases
+        b=hage.isel(origin_marker=0).mean(dim='time')
+        fn = '../plots/tracerage_sellaf_{}{}.png'.format(isotop,tag)
+        oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=0, vmax=maxage, clabel='Age '+isotop, filename=fn)
+        # La Hague releases
+        b=hage.isel(origin_marker=1).mean(dim='time')
+        fn = '../plots/tracerage_lahague_{}{}.png'.format(isotop,tag)
+        oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=0, vmax=maxage, clabel='Age '+isotop, filename=fn)
+        # Total releases
+        b=hage.mean(dim='time').mean(dim='origin_marker')
+        fn = '../plots/tracerage_total_{}{}.png'.format(isotop,tag)
+        oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=0, vmax=maxage, clabel='Age '+isotop, filename=fn)
+
+
+
+
     if False:
         # Make animations
         bbox= boxes.copy()
@@ -258,6 +287,7 @@ for isotop in isotops:
 
     if len(isotops)==2:
         h_save.append(h)
+        hage_save.append(hage)
 
 
 
@@ -313,6 +343,72 @@ if not len(h_save)==0:
         fn = '../plots/location_ts_{}{}.png'.format(ibox['text'].replace(' ',''), tag)
         plt.savefig(fn)
         
+
+
+
+
+
+
+
+# #################################################################
+# Compute and plot tracer age time series (and age ratios) between the isotopes
+if not len(h_save)==0:
+    ratstr = isotops[0]+'/'+isotops[1]
+    print('Compute mean age '+ratstr)
+
+    # Isotope 1
+    r1 = hage_save[0]
+    # Isotope 2
+    r2 = hage_save[1]
+
+    ii=0
+    # Loop over the selected boxes (locations)
+    # Compute time series for each location for each isotope for each source (origin_marker)
+    # Plot time series, including total (sum of sources)
+    for ibox in boxes:
+        ii+=1
+        fig=plt.figure(figsize=[9,7])
+        ax1=plt.subplot(1,1,1)
+#        ax2=plt.subplot(2,1,2)
+#        ax3=plt.subplot(3,1,3)
+        # Isotope 1
+        t1 = r1.sel(lon_bin=slice(ibox['lon'][0], ibox['lon'][1]), lat_bin=slice(ibox['lat'][0], ibox['lat'][1])).mean(('lon_bin','lat_bin'))
+#        t1std = r1.sel(lon_bin=slice(ibox['lon'][0], ibox['lon'][1]), lat_bin=slice(ibox['lat'][0], ibox['lat'][1])).std(('lon_bin','lat_bin'))
+#        t1std = t1std+t1
+        # Isotope 2
+        t2 = r2.sel(lon_bin=slice(ibox['lon'][0], ibox['lon'][1]), lat_bin=slice(ibox['lat'][0], ibox['lat'][1])).mean(('lon_bin','lat_bin'))
+        t2std = r2.sel(lon_bin=slice(ibox['lon'][0], ibox['lon'][1]), lat_bin=slice(ibox['lat'][0], ibox['lat'][1])).std(('lon_bin','lat_bin'))
+        # age ratio
+#        t3 = t1 / t2 
+
+        # Isotope 1
+        t1.isel(origin_marker=0).plot(label=isotops[0]+' SF',ax=ax1)
+        #t1std.isel(origin_marker=0).plot(label=isotops[0]+' std SF',ax=ax1)
+        t1.isel(origin_marker=1).plot(label=isotops[0]+' LH',ax=ax1)
+        t1.mean(dim='origin_marker').plot(label=isotops[0]+' total',ax=ax1)
+        # # Isotope 2
+        # t2.isel(origin_marker=0).plot(label=isotops[1]+' SF',ax=ax2)
+        # t2.isel(origin_marker=1).plot(label=isotops[1]+' LH',ax=ax2)
+        # t2.mean(dim='origin_marker').plot(label=isotops[1]+' total',ax=ax2)
+        # Isotope ratio
+#        t3.isel(origin_marker=0).plot(label=ratstr+' SF',ax=ax3)
+#        t3.isel(origin_marker=1).plot(label=ratstr+' LH',ax=ax3)
+#        t3.mean(dim='origin_marker').plot(label=ratstr+' total',ax=ax3)
+
+        ax1.set_title(isotops[0]+' age')
+#        ax2.set_title(isotops[1]+' age')
+#        ax3.set_title('age ratio '+ratstr)
+
+        for ax in [ax1]:
+            ax.legend()
+            ax.grid()
+        plt.suptitle(ibox['text'])
+        fn = '../plots/location_agets_{}{}.png'.format(ibox['text'].replace(' ',''), tag)
+        plt.savefig(fn)
+        
+
+
+
 
 
 
