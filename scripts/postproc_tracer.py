@@ -17,8 +17,8 @@ import pandas as pd
 
 #infn = '/home/magnes/projects/CERAD/RadioTracer/model_output/opendrift_tracers.nc'
 #infn = '/home/magnes/projects/CERAD/RadioTracer/model_output/opendrift_tracers_2000-2003.nc'
-infn = '/home/magnes/projects/CERAD/RadioTracer/model_output/opendrift_tracers_1993-1997_svim.nc'
-#infn = '/home/magnes/projects/CERAD/RadioTracer/model_output/opendrift_tracers_1993-1997_cmems.nc'
+#infn = '/home/magnes/projects/CERAD/RadioTracer/model_output/opendrift_tracers_1993-1997_svim.nc'
+infn = '/home/magnes/projects/CERAD/RadioTracer/model_output/opendrift_tracers_1993-1997_cmems.nc'
 
 
 # Select isotopes
@@ -153,7 +153,7 @@ hage_save = []
 
 # Create figure for release data
 fig0=plt.figure(figsize=[10,7])
-ax=plt.subplot()
+ax0=plt.subplot()
 
 
 
@@ -207,10 +207,10 @@ for isotop in isotops:
     # #######################
     # plot number of atoms per trajectory, 
     # first SF trajectories, the LH trajectories
-    ax.plot(trajweights,label=isotop)
-    ax.legend()
-    ax.set_yscale('log')
-    ax.grid()
+    ax0.plot(trajweights,label=isotop)
+    ax0.legend()
+    ax0.set_yscale('log')
+    ax0.grid()
     fn = '../plots/releases_ts{}.png'.format(tag)
     fig0.savefig(fname=fn)
 
