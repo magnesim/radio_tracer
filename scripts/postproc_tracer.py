@@ -247,23 +247,37 @@ for isotop in isotops:
 
     # ######################
     # Plot maps of tracer concentration integrated over time
-    # Sellafield releases
     vminconc=5
     vmaxconc=13
-    b=h.isel(origin_marker=0).sum(dim='time')
-    b=np.log10(b)
-    fn = '../plots/tracer_sellaf_{}{}.png'.format(isotop,tag)
-    oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=vminconc, vmax=vmaxconc, clabel='log10 Concentration '+isotops_fmt[isotop], filename=fn)
-    # La Hague releases
-    b=h.isel(origin_marker=1).sum(dim='time')
-    b=np.log10(b)
-    fn = '../plots/tracer_lahague_{}{}.png'.format(isotop,tag)
-    oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=vminconc, vmax=vmaxconc, clabel='log10 Concentration '+isotops_fmt[isotop], filename=fn)
-    # Total releases
-    b=h.sum(dim='origin_marker').sum(dim='time')
-    b=np.log10(b)
-    fn = '../plots/tracer_total_{}{}.png'.format(isotop,tag)
-    oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=vminconc, vmax=vmaxconc, clabel='log10 Concentration '+isotops_fmt[isotop], filename=fn)
+    map_proj = ccrs.Orthographic(-25, 65)
+
+    sources = ['Sellafield','LaHague','Total']
+    for ii,b in enumerate([h.isel(origin_marker=0).sum(dim='time'), 
+                           h.isel(origin_marker=1).sum(dim='time'), 
+                           h.sum(dim='origin_marker').sum(dim='time') ]):
+        fig=plt.figure(figsize=[12,7])
+        ax = plt.subplot(projection=map_proj)
+        b=np.log10(b)
+        LONS, LATS = np.meshgrid(b['lon_bin'], b['lat_bin'])
+        m1 = ax.pcolormesh(LONS,LATS, b.transpose(), vmin=vminconc, vmax=vmaxconc,  cmap='plasma' , shading='nearest', transform=proj_pp)
+        ax.coastlines()
+        ax.gridlines()
+        cb=plt.colorbar(m1, label='log10 {} Concentration (at/L)'.format(isotops_fmt[isotop]))
+        ax.set_title(isotops_fmt[isotop]+' '+sources[ii])
+        fn = '../plots/tracer_{}_{}{}.png'.format(sources[ii], isotop,tag)
+        fig.savefig(fn)
+        #oa.plot(transform=proj_pp, projection=map_proj, background=b.where(b>0), fast=False, show_elements=False, vmin=vminconc, vmax=vmaxconc, clabel='log10 Concentration '+isotops_fmt[isotop], filename=fn, subplot_kws={'projection': map_proj, 'transform':proj_pp})
+
+    # # La Hague releases
+    # b=h.isel(origin_marker=1).sum(dim='time')
+    # b=np.log10(b)
+    # fn = '../plots/tracer_lahague_{}{}.png'.format(isotop,tag)
+    # oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=vminconc, vmax=vmaxconc, clabel='log10 Concentration '+isotops_fmt[isotop], filename=fn)
+    # # Total releases
+    # b=h.sum(dim='origin_marker').sum(dim='time')
+    # b=np.log10(b)
+    # fn = '../plots/tracer_total_{}{}.png'.format(isotop,tag)
+    # oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=vminconc, vmax=vmaxconc, clabel='log10 Concentration '+isotops_fmt[isotop], filename=fn)
 
 
 
@@ -279,18 +293,35 @@ for isotop in isotops:
 #        hage = hage.sel( time=slice(d1-timedelta(days=365), d1))
         maxage=5
 
-        # Sellafield releases
-        b=hage.isel(origin_marker=0).mean(dim='time')
-        fn = '../plots/tracerage_sellaf_{}{}.png'.format(isotop,tag)
-        oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=0, vmax=maxage, clabel='Age '+isotops_fmt[isotop], filename=fn)
-        # La Hague releases
-        b=hage.isel(origin_marker=1).mean(dim='time')
-        fn = '../plots/tracerage_lahague_{}{}.png'.format(isotop,tag)
-        oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=0, vmax=maxage, clabel='Age '+isotops_fmt[isotop], filename=fn)
-        # Total releases
-        b=hage.mean(dim='time').mean(dim='origin_marker')
-        fn = '../plots/tracerage_total_{}{}.png'.format(isotop,tag)
-        oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=0, vmax=maxage, clabel='Age '+isotops_fmt[isotop], filename=fn)
+        for ii,b in enumerate([hage.isel(origin_marker=0).mean(dim='time'), 
+                            hage.isel(origin_marker=1).mean(dim='time'), 
+                            hage.mean(dim='origin_marker').mean(dim='time') ]):
+            fig=plt.figure(figsize=[12,7])
+            ax = plt.subplot(projection=map_proj)
+            LONS, LATS = np.meshgrid(b['lon_bin'], b['lat_bin'])
+            m1 = ax.pcolormesh(LONS,LATS, b.transpose(), vmin=0, vmax=maxage, cmap='rainbow', shading='nearest', transform=proj_pp)
+            ax.coastlines()
+            ax.gridlines()
+            cb=plt.colorbar(m1, label='Age {} (years)'.format(isotops_fmt[isotop]))
+            ax.set_title(isotops_fmt[isotop]+' '+sources[ii])
+            fn = '../plots/tracerage_{}_{}{}.png'.format(sources[ii], isotop,tag)
+            fig.savefig(fn)
+
+
+
+
+        # # Sellafield releases
+        # b=hage.isel(origin_marker=0).mean(dim='time')
+        # fn = '../plots/tracerage_sellaf_{}{}.png'.format(isotop,tag)
+        # oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=0, vmax=maxage, clabel='Age '+isotops_fmt[isotop], filename=fn)
+        # # La Hague releases
+        # b=hage.isel(origin_marker=1).mean(dim='time')
+        # fn = '../plots/tracerage_lahague_{}{}.png'.format(isotop,tag)
+        # oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=0, vmax=maxage, clabel='Age '+isotops_fmt[isotop], filename=fn)
+        # # Total releases
+        # b=hage.mean(dim='time').mean(dim='origin_marker')
+        # fn = '../plots/tracerage_total_{}{}.png'.format(isotop,tag)
+        # oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=0, vmax=maxage, clabel='Age '+isotops_fmt[isotop], filename=fn)
 
 
 
