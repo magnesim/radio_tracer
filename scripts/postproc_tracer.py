@@ -7,6 +7,7 @@ from release_descriptions import monthly_release, get_daily_weights, get_seed_da
 import matplotlib.pyplot as plt 
 
 import cartopy.crs as ccrs
+import pandas as pd 
 
 
 
@@ -26,6 +27,11 @@ isotops  = [
             '236U',
             ]
 
+isotops_fmt = {'129I': r'$^{129}$I',
+               '236U': r'$^{236}$U'}
+
+print('{} {}'.format( isotops_fmt[isotops[0]], isotops_fmt[isotops[1]] ))
+
 # Size (m) of horisontal pixels for concentration 
 psize   = 40000
 
@@ -35,6 +41,15 @@ psize   = 40000
 zmin = 100
 tag = '_{}m'.format(zmin)
 tag = tag+''   # here, you can add specific name tag that will appear in all file names
+
+
+
+
+# ######################################################################
+# O B S E R V A T I O N S
+obs_compare = False
+obs_compare = True
+obsfile = '../data/obs_template.csv'
 
 
 # ###########################################################################
@@ -208,6 +223,7 @@ for isotop in isotops:
     h  = oa.get_histogram(pixelsize_m=psize, weights=trajweights)
     # Scale by pixel volume to get concentration (atoms/m3)
     h = h / (psize*psize*zmin)
+    h = h / 1000.  # Convert to atoms/L
 
 
     # Filter on time
@@ -232,17 +248,22 @@ for isotop in isotops:
     # ######################
     # Plot maps of tracer concentration integrated over time
     # Sellafield releases
+    vminconc=5
+    vmaxconc=13
     b=h.isel(origin_marker=0).sum(dim='time')
+    b=np.log10(b)
     fn = '../plots/tracer_sellaf_{}{}.png'.format(isotop,tag)
-    oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=0, vmax=8.e14, clabel='Concentration '+isotop, filename=fn)
+    oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=vminconc, vmax=vmaxconc, clabel='log10 Concentration '+isotops_fmt[isotop], filename=fn)
     # La Hague releases
     b=h.isel(origin_marker=1).sum(dim='time')
+    b=np.log10(b)
     fn = '../plots/tracer_lahague_{}{}.png'.format(isotop,tag)
-    oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=0, vmax=8.e14, clabel='Concentration '+isotop, filename=fn)
+    oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=vminconc, vmax=vmaxconc, clabel='log10 Concentration '+isotops_fmt[isotop], filename=fn)
     # Total releases
     b=h.sum(dim='origin_marker').sum(dim='time')
+    b=np.log10(b)
     fn = '../plots/tracer_total_{}{}.png'.format(isotop,tag)
-    oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=0, vmax=8.e14, clabel='Concentration '+isotop, filename=fn)
+    oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=vminconc, vmax=vmaxconc, clabel='log10 Concentration '+isotops_fmt[isotop], filename=fn)
 
 
 
@@ -261,15 +282,15 @@ for isotop in isotops:
         # Sellafield releases
         b=hage.isel(origin_marker=0).mean(dim='time')
         fn = '../plots/tracerage_sellaf_{}{}.png'.format(isotop,tag)
-        oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=0, vmax=maxage, clabel='Age '+isotop, filename=fn)
+        oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=0, vmax=maxage, clabel='Age '+isotops_fmt[isotop], filename=fn)
         # La Hague releases
         b=hage.isel(origin_marker=1).mean(dim='time')
         fn = '../plots/tracerage_lahague_{}{}.png'.format(isotop,tag)
-        oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=0, vmax=maxage, clabel='Age '+isotop, filename=fn)
+        oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=0, vmax=maxage, clabel='Age '+isotops_fmt[isotop], filename=fn)
         # Total releases
         b=hage.mean(dim='time').mean(dim='origin_marker')
         fn = '../plots/tracerage_total_{}{}.png'.format(isotop,tag)
-        oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=0, vmax=maxage, clabel='Age '+isotop, filename=fn)
+        oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=0, vmax=maxage, clabel='Age '+isotops_fmt[isotop], filename=fn)
 
 
 
@@ -294,7 +315,7 @@ for isotop in isotops:
 # #################################################################
 # Compute and plot ratio time series between the isotopes
 if not len(h_save)==0:
-    ratstr = isotops[0]+'/'+isotops[1]
+    ratstr = isotops_fmt[isotops[0]]+'/'+isotops_fmt[isotops[1]]
     print('Compute isotope ratio '+ratstr)
 
     # Isotope 1
@@ -302,16 +323,15 @@ if not len(h_save)==0:
     # Isotope 2
     r2 = h_save[1]
 
-    ii=0
     # Loop over the selected boxes (locations)
     # Compute time series for each location for each isotope for each source (origin_marker)
     # Plot time series, including total (sum of sources)
     for ibox in boxes:
-        ii+=1
-        fig=plt.figure(figsize=[9,9])
-        ax1=plt.subplot(3,1,1)
-        ax2=plt.subplot(3,1,2)
-        ax3=plt.subplot(3,1,3)
+        fig=plt.figure(figsize=[9,12])
+        ax1=plt.subplot(4,1,1)
+        ax2=plt.subplot(4,1,2)
+        ax3=plt.subplot(4,1,3)
+        ax4=plt.subplot(4,1,4)
         # Isotope 1
         t1 = r1.sel(lon_bin=slice(ibox['lon'][0], ibox['lon'][1]), lat_bin=slice(ibox['lat'][0], ibox['lat'][1])).sum(('lon_bin','lat_bin'))
         # Isotope 2
@@ -320,25 +340,76 @@ if not len(h_save)==0:
         t3 = t1 / t2 
 
         # Isotope 1
-        t1.isel(origin_marker=0).plot(label=isotops[0]+' SF',ax=ax1)
-        t1.isel(origin_marker=1).plot(label=isotops[0]+' LH',ax=ax1)
-        t1.sum(dim='origin_marker').plot(label=isotops[0]+' total',ax=ax1)
+        t1.isel(origin_marker=0).plot(label=isotops_fmt[isotops[0]]+' SF',ax=ax1)
+        t1.isel(origin_marker=1).plot(label=isotops_fmt[isotops[0]]+' LH',ax=ax1)
+        t1.sum(dim='origin_marker').plot(label=isotops_fmt[isotops[0]]+' total',ax=ax1)
         # Isotope 2
-        t2.isel(origin_marker=0).plot(label=isotops[1]+' SF',ax=ax2)
-        t2.isel(origin_marker=1).plot(label=isotops[1]+' LH',ax=ax2)
-        t2.sum(dim='origin_marker').plot(label=isotops[1]+' total',ax=ax2)
+        t2.isel(origin_marker=0).plot(label=isotops_fmt[isotops[1]]+' SF',ax=ax2)
+        t2.isel(origin_marker=1).plot(label=isotops_fmt[isotops[1]]+' LH',ax=ax2)
+        t2.sum(dim='origin_marker').plot(label=isotops_fmt[isotops[1]]+' total',ax=ax2)
         # Isotope ratio
         t3.isel(origin_marker=0).plot(label=ratstr+' SF',ax=ax3)
         t3.isel(origin_marker=1).plot(label=ratstr+' LH',ax=ax3)
         t3.sum(dim='origin_marker').plot(label=ratstr+' total',ax=ax3)
+        # Source contribution 129I
+        t4SF = t1.isel(origin_marker=0) / t1.sum(dim='origin_marker')*100.
+        t4LH = t1.isel(origin_marker=1) / t1.sum(dim='origin_marker')*100.
+        t4SF.plot(c='C0', label='SF contribution {}'.format(isotops_fmt[isotops[0]]),ax=ax4)
+        t4LH.plot(c='C1', label='LH contribution {}'.format(isotops_fmt[isotops[0]]),ax=ax4)
+        # Source contribution 236U
+        t5SF = t2.isel(origin_marker=0) / t2.sum(dim='origin_marker')*100.
+        t5LH = t2.isel(origin_marker=1) / t2.sum(dim='origin_marker')*100.
+        t5SF.plot(ls=':', c='C0', label='SF contribution {}'.format(isotops_fmt[isotops[1]]),ax=ax4)
+        t5LH.plot(ls=':', c='C1', label='LH contribution {}'.format(isotops_fmt[isotops[1]]),ax=ax4)
 
-        ax1.set_title(isotops[0]+' concentration')
-        ax2.set_title(isotops[1]+' concentration')
+        ax1.set_title(isotops_fmt[isotops[0]]+' concentration')
+        ax2.set_title(isotops_fmt[isotops[1]]+' concentration')
         ax3.set_title('Isotope ratio '+ratstr)
+        ax4.set_title('Source contribution')
 
-        for ax in [ax1,ax2,ax3]:
+
+
+
+        if obs_compare:
+            obsdata = pd.read_csv(obsfile, header=0)
+
+            # Convert to datetime object
+            obsdata['Date'] = np.array([datetime.strptime(str(item), '%Y%m%d') for item in obsdata["Date"] ])
+
+            # Find the relevant observations, within the actual box
+            obsdata = obsdata[((obsdata['Longitude']>=ibox['lon'][0]) & (obsdata['Longitude']<=ibox['lon'][1]) &
+                               (obsdata['Latitude']>=ibox['lat'][0]) & (obsdata['Latitude']<=ibox['lat'][1]))]
+            
+            # ...and time
+            obsdata = obsdata[ ((obsdata['Date']>=d0) & (obsdata['Date']<=d1)) ]
+
+            # ... and depth
+            obsdata = obsdata[ np.abs(obsdata['Depth'])<=np.abs(zmin) ]
+            
+            # Pick out only iodine / uranium observations, and compute ratio where both nuclides are present
+            obs_iodine = obsdata[obsdata['129I Concentration (at/L)']!='Nan']
+            obs_uran = obsdata[obsdata['236U Concentration (at/L)']!='Nan']
+            obs_ratio = obsdata[ (obsdata['129I Concentration (at/L)']!='Nan') & (obsdata['236U Concentration (at/L)']!='Nan') ]
+            ratio = obs_ratio['129I Concentration (at/L)'].astype(float) /  obs_ratio['236U Concentration (at/L)'].astype(float)
+
+
+            # Plot with the time series
+            print('{:22} {:6}; N obs: {}'.format(ibox['text'], isotops[0], len(obs_iodine['129I Concentration (at/L)'])))
+            p1= ax1.plot(obs_iodine['Date'], obs_iodine['129I Concentration (at/L)'].astype(float), ls='none', marker='o', markeredgecolor='k', markerfacecolor='none', label='obs {}'.format(isotops_fmt[isotops[0]]))
+            print('{:22} {:6}; N obs: {}'.format(ibox['text'], isotops[1], len(obs_uran['236U Concentration (at/L)'])))
+            p2= ax2.plot(obs_uran['Date'], obs_uran['236U Concentration (at/L)'].astype(float), ls='none', marker='o', markeredgecolor='k', markerfacecolor='none', label='obs {}'.format(isotops_fmt[isotops[1]]))
+            print('{:22} ratio ; N obs: {}'.format(ibox['text'], len(ratio)))
+            p3= ax3.plot(obs_ratio['Date'], ratio, ls='none', marker='o', markeredgecolor='k', markerfacecolor='none', label='obs ratio')
+
+        for ax in [ax1,ax2,ax3,ax4]:
             ax.legend()
             ax.grid()
+            ax.set_xlim([d0,d1])
+        ax1.set_ylabel('{} concentration (at/L)'.format(isotops_fmt[isotops[0]]))
+        ax2.set_ylabel('{} concentration (at/L)'.format(isotops_fmt[isotops[1]]))
+        ax3.set_ylabel('ratio')
+        ax4.set_ylabel('percent')
+        ax3.set_yscale('log')
         plt.suptitle(ibox['text'])
         fn = '../plots/location_ts_{}{}.png'.format(ibox['text'].replace(' ',''), tag)
         plt.savefig(fn)
@@ -353,7 +424,7 @@ if not len(h_save)==0:
 # #################################################################
 # Compute and plot tracer age time series (and age ratios) between the isotopes
 if not len(h_save)==0:
-    ratstr = isotops[0]+'/'+isotops[1]
+    ratstr = isotops_fmt[isotops[0]]+'/'+isotops_fmt[isotops[1]]
     print('Compute mean age '+ratstr)
 
     # Isotope 1
@@ -361,12 +432,10 @@ if not len(h_save)==0:
     # Isotope 2
     r2 = hage_save[1]
 
-    ii=0
     # Loop over the selected boxes (locations)
     # Compute time series for each location for each isotope for each source (origin_marker)
     # Plot time series, including total (sum of sources)
     for ibox in boxes:
-        ii+=1
         fig=plt.figure(figsize=[9,7])
         ax1=plt.subplot(1,1,1)
 #        ax2=plt.subplot(2,1,2)
@@ -382,10 +451,10 @@ if not len(h_save)==0:
 #        t3 = t1 / t2 
 
         # Isotope 1
-        t1.isel(origin_marker=0).plot(label=isotops[0]+' SF',ax=ax1)
+        t1.isel(origin_marker=0).plot(label=isotops_fmt[isotops[0]]+' SF',ax=ax1)
         #t1std.isel(origin_marker=0).plot(label=isotops[0]+' std SF',ax=ax1)
-        t1.isel(origin_marker=1).plot(label=isotops[0]+' LH',ax=ax1)
-        t1.mean(dim='origin_marker').plot(label=isotops[0]+' total',ax=ax1)
+        t1.isel(origin_marker=1).plot(label=isotops_fmt[isotops[0]]+' LH',ax=ax1)
+        t1.mean(dim='origin_marker').plot(label=isotops_fmt[isotops[0]]+' total',ax=ax1)
         # # Isotope 2
         # t2.isel(origin_marker=0).plot(label=isotops[1]+' SF',ax=ax2)
         # t2.isel(origin_marker=1).plot(label=isotops[1]+' LH',ax=ax2)
@@ -395,7 +464,7 @@ if not len(h_save)==0:
 #        t3.isel(origin_marker=1).plot(label=ratstr+' LH',ax=ax3)
 #        t3.mean(dim='origin_marker').plot(label=ratstr+' total',ax=ax3)
 
-        ax1.set_title(isotops[0]+' age')
+        ax1.set_title(isotops_fmt[isotops[0]]+' age')
 #        ax2.set_title(isotops[1]+' age')
 #        ax3.set_title('age ratio '+ratstr)
 
@@ -416,7 +485,7 @@ if not len(h_save)==0:
 # Compute and plot ratio maps between the isotopes
         
 if not len(h_save)==0:
-    ratstr = isotops[0]+'/'+isotops[1]
+    ratstr = isotops_fmt[isotops[0]]+'/'+isotops_fmt[isotops[1]]
     print('Compute isotope ratio '+ratstr)
 
     r1 = h_save[0]
