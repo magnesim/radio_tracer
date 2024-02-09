@@ -446,6 +446,14 @@ if not len(h_save)==0:
         plt.savefig(fn)
         
 
+        if obs_compare:
+            # Compare obs with nearest model value
+            from plotting_tools import plot_scatter_obsmodel
+            plot_scatter_obsmodel(obs_iodine, t1, isotope='129I', folder='../plots', box=ibox['text'].replace(' ',''))
+            plot_scatter_obsmodel(obs_uran, t2, isotope='236U', folder='../plots', box=ibox['text'].replace(' ',''))
+            plot_scatter_obsmodel(obs_ratio, t3, isotope='ratio', folder='../plots', box=ibox['text'].replace(' ',''))
+
+
 
 
 
