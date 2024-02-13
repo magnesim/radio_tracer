@@ -131,6 +131,8 @@ oa.ds = oa.ds.where(oa.ds.z > -zmin)
 
 [seed_dates, datesfromfile, ntraj] = get_seed_date(infn)
 [d0,d1] = datesfromfile
+#d0 = datetime(1993,1,1)
+#d1 = datetime(2019,2,28)
 
 # Compute number of days and the number of released particles each day
 # Assume equal number for each location 

@@ -116,7 +116,11 @@ def get_daily_weights(release, dates):
         yy = date_arr[ii].year
         mm = date_arr[ii].month 
         dim = calendar.monthrange(yy, mm)[1]
-        tt = np.where((release_month == mm) & (release_year==yy) )[0][0]
+        try:
+            tt = np.where((release_month == mm) & (release_year==yy) )[0][0]
+        except Exception:
+            print('Error: get_daily_weights: ', yy, mm)
+            exit()
         weightsDay[ii] = rel_release[tt] / dim 
 
 
