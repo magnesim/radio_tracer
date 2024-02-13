@@ -137,7 +137,10 @@ oa.ds = oa.ds.where(oa.ds.z > -zmin)
 # Compute number of days and the number of released particles each day
 # Assume equal number for each location 
 ndays = int((d1 - d0).total_seconds() / 86400 + 1) 
-print(f'ndays: {ndays}, first day: {d0}, last day: {d1}',ndays)
+print(f'On file   : ndays: {((datesfromfile[-1]-datesfromfile[0]).total_seconds())/86400}, first day: {datesfromfile[0]}, last day: {datesfromfile[-1]}', ndays)
+#print(f'On file   : ndays: {00}, first day: {datesfromfile[0]}, last day: {datesfromfile[-1]}', ndays)
+print(f'Evaluation: ndays: {ndays}, first day: {d0}, last day: {d1}',ndays)
+print(f'seed_dates: ndays: {00}, first day: {seed_dates[0]}, last day: {seed_dates[-1]}',ndays)
 date_arr = [d0 + timedelta(days=item) for item in range(ndays)] 
 ntrajperday = np.zeros(ndays)
 for ii,dd in enumerate(date_arr):
@@ -172,12 +175,16 @@ for isotop in isotops:
     [rel_sf_t, rel_sf_y] = monthly_release(isotop, dates=[d0,d1], location='Sellafield') 
     [rel_lh_t, rel_lh_y] = monthly_release(isotop, dates=[d0,d1], location='LaHague') 
 
-
+#    print(f'{isotop} SF: {rel_sf_t[0]} {rel_sf_t[-1]}')
+#    print(f'{isotop} LH: {rel_lh_t[0]} {rel_lh_t[-1]}')
 
     # Get the daily weighted release from SF and LH
     [date_arrSF, weightsSF, total_atomsSF] = get_daily_weights( release=[rel_sf_t, rel_sf_y], dates=[d0,d1] )
     [date_arrLH, weightsLH, total_atomsLH] = get_daily_weights( release=[rel_lh_t, rel_lh_y], dates=[d0,d1] )
 
+#    print(f'len weigths: {len(weightsSF)} {len(weightsLH)} {date_arrLH[0]} {date_arrLH[-1]} {date_arrSF[0]} {date_arrSF[-1]} ')
+#    print(f'date_arr: {len(date_arr)} {date_arr[0]} {date_arr[-1]}')
+#    print(f'len ntrajperday: {len(ntrajperday)}')
 
     # Get the daily weights,
     # scaled by number of trajectories released each day in opendrift simulation
@@ -190,7 +197,10 @@ for isotop in isotops:
     trajweightsLH = np.zeros(ntraj//2)
     for ii in range(ntraj//2):
         dd = seed_dates[ii]
-        idx = date_arr.index(dd)
+        try:
+            idx = date_arr.index(dd)
+        except Exception:
+            continue
         trajweightsSF[ii] = weightsSF[idx] * total_atomsSF 
         trajweightsLH[ii] = weightsLH[idx] * total_atomsLH
 
@@ -290,9 +300,9 @@ for isotop in isotops:
         # is only nesecary to do for the first radionuclide
         hage  = oa.get_histogram(pixelsize_m=psize, weights=oa.ds['age_seconds'], density=False)
         num   = oa.get_histogram(pixelsize_m=psize, weights=None, density=False)
-        hage = hage / (86400*356)    # years
+        hage = hage / (86400*365)    # years
         hage = hage / num
-#        hage = hage.sel( time=slice(d1-timedelta(days=365), d1))
+        hage = hage.sel( time=slice(d0, d1))
         maxage=5
 
         for ii,b in enumerate([hage.isel(origin_marker=0).mean(dim='time'), 
@@ -512,6 +522,7 @@ if not len(h_save)==0:
         for ax in [ax1]:
             ax.legend()
             ax.grid()
+            ax.set_xlim([d0,d1])
         plt.suptitle(ibox['text'])
         fn = '../plots/location_agets_{}{}.png'.format(ibox['text'].replace(' ',''), tag)
         plt.savefig(fn)
