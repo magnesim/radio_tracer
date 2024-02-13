@@ -34,6 +34,8 @@ print('{} {}'.format( isotops_fmt[isotops[0]], isotops_fmt[isotops[1]] ))
 
 # Size (m) of horisontal pixels for concentration 
 psize   = 40000
+latlim = 45.    # lower limits for the histograms
+lonlim = -30.   # lower limits for the histograms
 
 
 # Filter out particles deeper than zmin
@@ -123,6 +125,10 @@ oa = opendrift.open_xarray(infn)
 oa.ds = oa.ds.where(oa.ds.z > -zmin)
 
 
+# Mask on western and southern boundary
+oa.ds = oa.ds.where(oa.ds.lat > latlim)
+oa.ds = oa.ds.where(oa.ds.lon > lonlim)
+
 
 # ###########################################################################
 # Get the time period (datesfromfile), number of trajectories (ntraj)
@@ -131,8 +137,8 @@ oa.ds = oa.ds.where(oa.ds.z > -zmin)
 
 [seed_dates, datesfromfile, ntraj] = get_seed_date(infn)
 [d0,d1] = datesfromfile
-#d0 = datetime(1993,1,1)
-#d1 = datetime(2019,2,28)
+d0 = datetime(1992,1,1)
+d1 = datetime(2019,2,28)
 
 # Compute number of days and the number of released particles each day
 # Assume equal number for each location 
