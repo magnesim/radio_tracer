@@ -9,6 +9,19 @@ import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import pandas as pd 
 
+import tracemalloc
+
+
+
+
+
+def print_mem(message=''):
+
+    mem = np.array(tracemalloc.get_traced_memory())
+    print('MEMORY {}: {:.2e} {:.2e} '.format(message, mem[0], mem[1]) )
+
+
+tracemalloc.start()
 
 
 
@@ -33,9 +46,11 @@ isotops_fmt = {'129I': r'$^{129}$I',
 print('{} {}'.format( isotops_fmt[isotops[0]], isotops_fmt[isotops[1]] ))
 
 # Size (m) of horisontal pixels for concentration 
-psize   = 40000
-latlim = 45.    # lower limits for the histograms
-lonlim = -30.   # lower limits for the histograms
+psize   = 20000
+latlim = [40., 89.]       # lower lat limits for the histograms
+lonlim = [-100., 100.]    # lower lon limits for the histograms
+latlim = [55., 65.]      # lower lat limits for the histograms
+lonlim = [0., 10.]      # lower lon limits for the histograms
 
 
 # Filter out particles deeper than zmin
@@ -44,7 +59,7 @@ zmin = 100
 tag = '_{}m'.format(zmin)
 tag = tag+''   # here, you can add specific name tag that will appear in all file names
 
-
+compute_age = True
 
 
 # ######################################################################
@@ -78,17 +93,6 @@ boxes_org = [
         ]
 
 
-# if False:
-#     o.io_import_file(infn)
-
-#     fn = '../plots/tracer_particles.mp4'
-#     o.animation(fast=False, #clabel='Ocean current [m/s]',
-#                 #color='z',
-#     #            background=['x_sea_water_velocity', 'y_sea_water_velocity'],
-#                 filename=fn,
-#                 )
-
-
 
 
 # plot the boxes on a map
@@ -108,6 +112,11 @@ ax.stock_img()
 
 fn='../plots/map_locations{}.png'.format(tag)
 plt.savefig(fn)
+plt.close()
+
+
+
+print_mem('start')
 
 
 
@@ -124,12 +133,15 @@ oa = opendrift.open_xarray(infn)
 # deeper than zmin will be masked out
 oa.ds = oa.ds.where(oa.ds.z > -zmin)
 
+print_mem('after loading nc file') 
+
 
 # Mask on western and southern boundary
-oa.ds = oa.ds.where(oa.ds.lat > latlim)
-oa.ds = oa.ds.where(oa.ds.lon > lonlim)
+oa.ds = oa.ds.where( (oa.ds.lat > latlim[0]) & (oa.ds.lat < latlim[1]) )
+oa.ds = oa.ds.where( (oa.ds.lon > lonlim[0]) & (oa.ds.lon < lonlim[1]) )
 
 
+ 
 # ###########################################################################
 # Get the time period (datesfromfile), number of trajectories (ntraj)
 # and their corresponding seeding date (seed_dates) from opendrft output file (infn)
@@ -137,8 +149,8 @@ oa.ds = oa.ds.where(oa.ds.lon > lonlim)
 
 [seed_dates, datesfromfile, ntraj] = get_seed_date(infn)
 [d0,d1] = datesfromfile
-d0 = datetime(1992,1,1)
-d1 = datetime(2019,2,28)
+d0 = datetime(1994,1,1)
+d1 = datetime(1995,2,28)
 
 # Compute number of days and the number of released particles each day
 # Assume equal number for each location 
@@ -160,7 +172,6 @@ for ii,dd in enumerate(date_arr):
 # ###############################################################################
 # Store the histograms 
 h_save = []
-hage_save = []
 
 # Create figure for release data
 fig0=plt.figure(figsize=[10,7])
@@ -235,10 +246,12 @@ for isotop in isotops:
 
 
 
+    print_mem('before histo') 
 
     # #########################
     # Use opendrift function to compute horizontal histograms 
-    h  = oa.get_histogram(pixelsize_m=psize, weights=trajweights)
+    h  = oa.get_histogram(pixelsize_m=psize, weights=trajweights).sel(lon_bin=slice(lonlim[0],lonlim[1]), lat_bin=slice(latlim[0],latlim[1]))
+    print( 'h.shape', h.shape )
     # Scale by pixel volume to get concentration (atoms/m3)
     h = h / (psize*psize*zmin)
     h = h / 1000.  # Convert to atoms/L
@@ -246,19 +259,11 @@ for isotop in isotops:
 
     # Filter on time
     h = h.sel( time=slice(d0, d1) )
-#    h = h.sel( time=slice(d1-timedelta(days=365), d1) )
+
+    print_mem('after histo') 
 
 
 
-
-# """
-# text = [{'s': o.origin_marker[0], 'x': 8.55, 'y': 58.56, 'fontsize': 20, 'color': 'g',
-#          'backgroundcolor': 'white', 'bbox': dict(facecolor='white', alpha=0.8), 'zorder': 1000},
-#         {'s': o.origin_marker[1], 'x': 8.35, 'y': 58.42, 'fontsize': 20, 'color': 'g',
-#          'backgroundcolor': 'white', 'bbox': dict(facecolor='white', alpha=0.8), 'zorder': 1000},
-#         {'s': '* Station', 'x': station_lon, 'y': station_lat, 'fontsize': 20, 'color': 'k',
-#          'backgroundcolor': 'white', 'bbox': dict(facecolor='none', edgecolor='none', alpha=0.4), 'zorder': 1000}]
-# """
 
 
 
@@ -267,7 +272,7 @@ for isotop in isotops:
     # Plot maps of tracer concentration integrated over time
     vminconc=5
     vmaxconc=13
-    map_proj = ccrs.Orthographic(-25, 65)
+    map_proj = ccrs.Orthographic(2, 65)
 
     sources = ['Sellafield','LaHague','Total']
     for ii,b in enumerate([h.isel(origin_marker=0).sum(dim='time'), 
@@ -284,32 +289,23 @@ for isotop in isotops:
         ax.set_title(isotops_fmt[isotop]+' '+sources[ii])
         fn = '../plots/tracer_{}_{}{}.png'.format(sources[ii], isotop,tag)
         fig.savefig(fn)
-        #oa.plot(transform=proj_pp, projection=map_proj, background=b.where(b>0), fast=False, show_elements=False, vmin=vminconc, vmax=vmaxconc, clabel='log10 Concentration '+isotops_fmt[isotop], filename=fn, subplot_kws={'projection': map_proj, 'transform':proj_pp})
-
-    # # La Hague releases
-    # b=h.isel(origin_marker=1).sum(dim='time')
-    # b=np.log10(b)
-    # fn = '../plots/tracer_lahague_{}{}.png'.format(isotop,tag)
-    # oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=vminconc, vmax=vmaxconc, clabel='log10 Concentration '+isotops_fmt[isotop], filename=fn)
-    # # Total releases
-    # b=h.sum(dim='origin_marker').sum(dim='time')
-    # b=np.log10(b)
-    # fn = '../plots/tracer_total_{}{}.png'.format(isotop,tag)
-    # oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=vminconc, vmax=vmaxconc, clabel='log10 Concentration '+isotops_fmt[isotop], filename=fn)
+        plt.close(fig)
 
 
 
-    if isotop == isotops[0]:
+
+    if compute_age and isotop == isotops[0]:
         # ######################
         # Plot maps of tracer age integrated over time
         # This is similar for both radionuclides, and 
         # is only nesecary to do for the first radionuclide
-        hage  = oa.get_histogram(pixelsize_m=psize, weights=oa.ds['age_seconds'], density=False)
-        num   = oa.get_histogram(pixelsize_m=psize, weights=None, density=False)
+        hage  = oa.get_histogram(pixelsize_m=psize, weights=oa.ds['age_seconds'], density=False).sel(lon_bin=slice(lonlim[0],lonlim[1]), lat_bin=slice(latlim[0],latlim[1]))
+        num   = oa.get_histogram(pixelsize_m=psize, weights=None, density=False).sel(lon_bin=slice(lonlim[0],lonlim[1]), lat_bin=slice(latlim[0],latlim[1]))
         hage = hage / (86400*365)    # years
         hage = hage / num
         hage = hage.sel( time=slice(d0, d1))
         maxage=5
+        num = None
 
         for ii,b in enumerate([hage.isel(origin_marker=0).mean(dim='time'), 
                             hage.isel(origin_marker=1).mean(dim='time'), 
@@ -324,40 +320,18 @@ for isotop in isotops:
             ax.set_title(isotops_fmt[isotop]+' '+sources[ii])
             fn = '../plots/tracerage_{}_{}{}.png'.format(sources[ii], isotop,tag)
             fig.savefig(fn)
+            plt.close()
 
 
 
 
-        # # Sellafield releases
-        # b=hage.isel(origin_marker=0).mean(dim='time')
-        # fn = '../plots/tracerage_sellaf_{}{}.png'.format(isotop,tag)
-        # oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=0, vmax=maxage, clabel='Age '+isotops_fmt[isotop], filename=fn)
-        # # La Hague releases
-        # b=hage.isel(origin_marker=1).mean(dim='time')
-        # fn = '../plots/tracerage_lahague_{}{}.png'.format(isotop,tag)
-        # oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=0, vmax=maxage, clabel='Age '+isotops_fmt[isotop], filename=fn)
-        # # Total releases
-        # b=hage.mean(dim='time').mean(dim='origin_marker')
-        # fn = '../plots/tracerage_total_{}{}.png'.format(isotop,tag)
-        # oa.plot(background=b.where(b>0), fast=True, show_elements=False, vmin=0, vmax=maxage, clabel='Age '+isotops_fmt[isotop], filename=fn)
 
 
 
-
-    if False:
-        # Make animations
-        bbox= boxes.copy()
-        print('animation',bbox)
-
-        rw = h.sum(dim='origin_marker')
-
-        fn = '../plots/tracer_density_{}.mp4'.format(isotop)
-        oa.animation(background=rw.where(rw>0), bgalpha=1, fast=False,
-                show_elements=False, vmin=0, vmax=2.e5, filename=fn) #, box=bbox, text=text)
 
     if len(isotops)==2:
         h_save.append(h)
-        hage_save.append(hage)
+        h = None
 
 
 
@@ -367,10 +341,13 @@ if not len(h_save)==0:
     ratstr = isotops_fmt[isotops[0]]+'/'+isotops_fmt[isotops[1]]
     print('Compute isotope ratio '+ratstr)
 
+
+    print_mem('before r1r2')
     # Isotope 1
     r1 = h_save[0]
     # Isotope 2
     r2 = h_save[1]
+    print_mem('after r1r2')
 
     # Loop over the selected boxes (locations)
     # Compute time series for each location for each isotope for each source (origin_marker)
@@ -462,6 +439,7 @@ if not len(h_save)==0:
         plt.suptitle(ibox['text'])
         fn = '../plots/location_ts_{}{}.png'.format(ibox['text'].replace(' ',''), tag)
         plt.savefig(fn)
+        plt.close()
         
 
         if obs_compare:
@@ -480,14 +458,12 @@ if not len(h_save)==0:
 
 # #################################################################
 # Compute and plot tracer age time series (and age ratios) between the isotopes
-if not len(h_save)==0:
+if compute_age and not len(h_save)==0:
     ratstr = isotops_fmt[isotops[0]]+'/'+isotops_fmt[isotops[1]]
     print('Compute mean age '+ratstr)
 
     # Isotope 1
-    r1 = hage_save[0]
-    # Isotope 2
-    r2 = hage_save[1]
+    r1 = hage
 
     # Loop over the selected boxes (locations)
     # Compute time series for each location for each isotope for each source (origin_marker)
@@ -495,36 +471,18 @@ if not len(h_save)==0:
     for ibox in boxes:
         fig=plt.figure(figsize=[9,7])
         ax1=plt.subplot(1,1,1)
-#        ax2=plt.subplot(2,1,2)
-#        ax3=plt.subplot(3,1,3)
         # Isotope 1
         t1 = r1.sel(lon_bin=slice(ibox['lon'][0], ibox['lon'][1]), lat_bin=slice(ibox['lat'][0], ibox['lat'][1])).mean(('lon_bin','lat_bin'))
 #        t1std = r1.sel(lon_bin=slice(ibox['lon'][0], ibox['lon'][1]), lat_bin=slice(ibox['lat'][0], ibox['lat'][1])).std(('lon_bin','lat_bin'))
 #        t1std = t1std+t1
-        # Isotope 2
-        t2 = r2.sel(lon_bin=slice(ibox['lon'][0], ibox['lon'][1]), lat_bin=slice(ibox['lat'][0], ibox['lat'][1])).mean(('lon_bin','lat_bin'))
-        t2std = r2.sel(lon_bin=slice(ibox['lon'][0], ibox['lon'][1]), lat_bin=slice(ibox['lat'][0], ibox['lat'][1])).std(('lon_bin','lat_bin'))
-        # age ratio
-#        t3 = t1 / t2 
 
         # Isotope 1
         t1.isel(origin_marker=0).plot(label=isotops_fmt[isotops[0]]+' SF',ax=ax1)
         #t1std.isel(origin_marker=0).plot(label=isotops[0]+' std SF',ax=ax1)
         t1.isel(origin_marker=1).plot(label=isotops_fmt[isotops[0]]+' LH',ax=ax1)
         t1.mean(dim='origin_marker').plot(label=isotops_fmt[isotops[0]]+' total',ax=ax1)
-        # # Isotope 2
-        # t2.isel(origin_marker=0).plot(label=isotops[1]+' SF',ax=ax2)
-        # t2.isel(origin_marker=1).plot(label=isotops[1]+' LH',ax=ax2)
-        # t2.mean(dim='origin_marker').plot(label=isotops[1]+' total',ax=ax2)
-        # Isotope ratio
-#        t3.isel(origin_marker=0).plot(label=ratstr+' SF',ax=ax3)
-#        t3.isel(origin_marker=1).plot(label=ratstr+' LH',ax=ax3)
-#        t3.mean(dim='origin_marker').plot(label=ratstr+' total',ax=ax3)
 
         ax1.set_title(isotops_fmt[isotops[0]]+' age')
-#        ax2.set_title(isotops[1]+' age')
-#        ax3.set_title('age ratio '+ratstr)
-
         for ax in [ax1]:
             ax.legend()
             ax.grid()
@@ -532,11 +490,13 @@ if not len(h_save)==0:
         plt.suptitle(ibox['text'])
         fn = '../plots/location_agets_{}{}.png'.format(ibox['text'].replace(' ',''), tag)
         plt.savefig(fn)
-        
+        plt.close()
+    r1=None
 
 
 
 
+print_mem('before last plot')
 
 
 # #################################################################
@@ -560,14 +520,16 @@ if not len(h_save)==0:
     ratio = np.log10(ratio)
 
     fn = '../plots/map_isotope1_{}{}.png'.format(isotops[0], tag)
-    oa.plot(background=r1.where(r1>0), fast=True, show_elements=False, vmin=0, vmax=20000, clabel = 'r1 '+isotops[0], filename=fn)
+    oa.plot(background=r1.where(r1>0), corners=[lonlim[0], lonlim[1], latlim[0], latlim[1]], fast=True, show_elements=False, vmin=0, vmax=20000, clabel = 'r1 '+isotops[0], filename=fn)
     fn = '../plots/map_isotope2_{}{}.png'.format(isotops[1], tag)
-    oa.plot(background=r2.where(r2>0), fast=True, show_elements=False, vmin=0, vmax=6000, clabel = 'r2 '+isotops[1], filename=fn)
+    oa.plot(background=r2.where(r2>0), corners=[lonlim[0], lonlim[1], latlim[0], latlim[1]], fast=True, show_elements=False, vmin=0, vmax=6000, clabel = 'r2 '+isotops[1], filename=fn)
 
     fn = '../plots/map_ratio{}.png'.format(tag)
-    oa.plot(background=ratio.where(ratio>-19), fast=True, show_elements=False, vmin=-2, vmax=3, clabel = 'log10 ratio '+ratstr, filename=fn)
+    oa.plot(background=ratio.where(ratio>-19), corners=[lonlim[0], lonlim[1], latlim[0], latlim[1]], fast=True, show_elements=False, vmin=-2, vmax=3, clabel = 'log10 ratio '+ratstr, filename=fn)
 
-
+    r1=None
+    r2=None
+    ratio=None
 
 # for om in [0, 1]:
 #     background=h.isel(origin_marker=om)
@@ -577,3 +539,4 @@ if not len(h_save)==0:
 
 
 
+print_mem('end')
