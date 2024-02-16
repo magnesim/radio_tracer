@@ -91,7 +91,7 @@ def monthly_release(isotop=None, dates=None, location=None):
 def get_daily_weights(release, dates):
     '''
     release:     [datetime objects, release magnitude]
-    dates:       [first date, last date]
+    dates:       array of dates to be evaluated
     ntraj:       number of trajectories (int)
     '''
     
@@ -102,10 +102,14 @@ def get_daily_weights(release, dates):
     natoms_total = np.sum(release_y)
     rel_release = release_y / natoms_total 
 
-    ndays = int((dates[1] - dates[0]).total_seconds() / 86400 +1)
+    #ndays = int((dates[1] - dates[0]).total_seconds() / 86400 +1)
+    ndays = int(len(dates))
     print(f'ndays: {ndays}',ndays)
 
-    date_arr = [dates[0] + timedelta(days=item) for item in range(ndays)]
+
+#    date_arr = [dates[0] + timedelta(days=item) for item in range(ndays)]
+    date_arr = dates
+
     
     weightsDay=np.zeros(ndays)
     release_year = np.array([item.year for item in release_t])

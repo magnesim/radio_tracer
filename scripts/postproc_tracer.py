@@ -31,7 +31,8 @@ tracemalloc.start()
 #infn = '/home/magnes/projects/CERAD/RadioTracer/model_output/opendrift_tracers.nc'
 #infn = '/home/magnes/projects/CERAD/RadioTracer/model_output/opendrift_tracers_2000-2003.nc'
 #infn = '/home/magnes/projects/CERAD/RadioTracer/model_output/opendrift_tracers_1993-1997_svim.nc'
-infn = '/home/magnes/projects/CERAD/RadioTracer/model_output/opendrift_tracers_1993-1997_cmems.nc'
+#infn = '/home/magnes/projects/CERAD/RadioTracer/model_output/opendrift_tracers_1993-1997_cmems.nc'
+infn = '/home/magnes/projects/CERAD/RadioTracer/model_output/opendrift_tracers_10d.nc'
 
 
 # Select isotopes
@@ -49,8 +50,8 @@ print('{} {}'.format( isotops_fmt[isotops[0]], isotops_fmt[isotops[1]] ))
 psize   = 20000
 latlim = [40., 89.]       # lower lat limits for the histograms
 lonlim = [-100., 100.]    # lower lon limits for the histograms
-latlim = [55., 65.]      # lower lat limits for the histograms
-lonlim = [0., 10.]      # lower lon limits for the histograms
+#latlim = [55., 65.]      # lower lat limits for the histograms
+#lonlim = [0., 10.]      # lower lon limits for the histograms
 
 
 # Filter out particles deeper than zmin
@@ -135,10 +136,14 @@ oa.ds = oa.ds.where(oa.ds.z > -zmin)
 
 print_mem('after loading nc file') 
 
+# Read time variable from opendrift nc file
+timefromfile  = np.array([pd.to_datetime(item) for item in oa.ds['time'].values])
+timedifffromfile = (timefromfile[1] - timefromfile[0])
+
 
 # Mask on western and southern boundary
-oa.ds = oa.ds.where( (oa.ds.lat > latlim[0]) & (oa.ds.lat < latlim[1]) )
-oa.ds = oa.ds.where( (oa.ds.lon > lonlim[0]) & (oa.ds.lon < lonlim[1]) )
+#oa.ds = oa.ds.where( (oa.ds.lat > latlim[0]) & (oa.ds.lat < latlim[1]) )
+#oa.ds = oa.ds.where( (oa.ds.lon > lonlim[0]) & (oa.ds.lon < lonlim[1]) )
 
 
  
@@ -152,18 +157,19 @@ oa.ds = oa.ds.where( (oa.ds.lon > lonlim[0]) & (oa.ds.lon < lonlim[1]) )
 d0 = datetime(1994,1,1)
 d1 = datetime(1995,2,28)
 
+#timefromfile=timefromfile[(timefromfile>=d0) & (timefromfile<=d1)]
+ntimesfromfile = len(timefromfile)
+print('timefromfile',timefromfile[0], timefromfile[-1], len(timefromfile))
+
+
 # Compute number of days and the number of released particles each day
 # Assume equal number for each location 
-ndays = int((d1 - d0).total_seconds() / 86400 + 1) 
-print(f'On file   : ndays: {((datesfromfile[-1]-datesfromfile[0]).total_seconds())/86400}, first day: {datesfromfile[0]}, last day: {datesfromfile[-1]}', ndays)
-#print(f'On file   : ndays: {00}, first day: {datesfromfile[0]}, last day: {datesfromfile[-1]}', ndays)
-print(f'Evaluation: ndays: {ndays}, first day: {d0}, last day: {d1}',ndays)
-print(f'seed_dates: ndays: {00}, first day: {seed_dates[0]}, last day: {seed_dates[-1]}',ndays)
-date_arr = [d0 + timedelta(days=item) for item in range(ndays)] 
-ntrajperday = np.zeros(ndays)
-for ii,dd in enumerate(date_arr):
+print(f'On file   : time range (days): {((datesfromfile[-1]-datesfromfile[0]).total_seconds())/86400}, ntimes: {ntimesfromfile}, first day: {datesfromfile[0]}, last day: {datesfromfile[-1]}, deltat: {timedifffromfile}')
+print(f'Evaluation: first day: {d0}, last day: {d1}')
+print(f'seed_dates: len: {len(seed_dates)}, first day: {seed_dates[0]}, last day: {seed_dates[-1]}')
+ntrajperday = np.zeros(ntimesfromfile)
+for ii,dd in enumerate(timefromfile):
     ntrajperday[ii] = np.sum(seed_dates[:ntraj//2]==dd)
-
 
 
 
@@ -189,19 +195,16 @@ for isotop in isotops:
     boxes=boxes_org.copy()
 
     # Extract the mothly releases from SF and LH
-    [rel_sf_t, rel_sf_y] = monthly_release(isotop, dates=[d0,d1], location='Sellafield') 
-    [rel_lh_t, rel_lh_y] = monthly_release(isotop, dates=[d0,d1], location='LaHague') 
+    [rel_sf_t, rel_sf_y] = monthly_release(isotop, dates=datesfromfile, location='Sellafield') 
+    [rel_lh_t, rel_lh_y] = monthly_release(isotop, dates=datesfromfile, location='LaHague') 
 
-#    print(f'{isotop} SF: {rel_sf_t[0]} {rel_sf_t[-1]}')
-#    print(f'{isotop} LH: {rel_lh_t[0]} {rel_lh_t[-1]}')
+    print(f'{isotop} SF: {rel_sf_t[0]} {rel_sf_t[-1]}')
+    print(f'{isotop} LH: {rel_lh_t[0]} {rel_lh_t[-1]}')
 
     # Get the daily weighted release from SF and LH
-    [date_arrSF, weightsSF, total_atomsSF] = get_daily_weights( release=[rel_sf_t, rel_sf_y], dates=[d0,d1] )
-    [date_arrLH, weightsLH, total_atomsLH] = get_daily_weights( release=[rel_lh_t, rel_lh_y], dates=[d0,d1] )
+    [date_arrSF, weightsSF, total_atomsSF] = get_daily_weights( release=[rel_sf_t, rel_sf_y], dates=timefromfile )
+    [date_arrLH, weightsLH, total_atomsLH] = get_daily_weights( release=[rel_lh_t, rel_lh_y], dates=timefromfile )
 
-#    print(f'len weigths: {len(weightsSF)} {len(weightsLH)} {date_arrLH[0]} {date_arrLH[-1]} {date_arrSF[0]} {date_arrSF[-1]} ')
-#    print(f'date_arr: {len(date_arr)} {date_arr[0]} {date_arr[-1]}')
-#    print(f'len ntrajperday: {len(ntrajperday)}')
 
     # Get the daily weights,
     # scaled by number of trajectories released each day in opendrift simulation
@@ -212,14 +215,24 @@ for isotop in isotops:
     # scaled by the total release from SF and LH
     trajweightsSF = np.zeros(ntraj//2)
     trajweightsLH = np.zeros(ntraj//2)
+    nfail=0; noutside=0
     for ii in range(ntraj//2):
-        dd = seed_dates[ii]
+        dd = pd.to_datetime(seed_dates[ii])
         try:
-            idx = date_arr.index(dd)
+            idx = np.where(timefromfile==dd)[0]
         except Exception:
+            nfail+=1
+            if ii<100:
+                print(ii,dd, timefromfile[0], type(timefromfile[0]))
             continue
         trajweightsSF[ii] = weightsSF[idx] * total_atomsSF 
         trajweightsLH[ii] = weightsLH[idx] * total_atomsLH
+    if nfail>0:
+        print('nfail:',nfail)
+    if noutside>0:
+        print('noutside',noutside)
+    print('total_atomsSF', total_atomsSF)
+    print('total_atomsLH', total_atomsLH)
 
     # Concatenate the releases 
     # and trajectory weights
@@ -250,15 +263,14 @@ for isotop in isotops:
 
     # #########################
     # Use opendrift function to compute horizontal histograms 
-    h  = oa.get_histogram(pixelsize_m=psize, weights=trajweights).sel(lon_bin=slice(lonlim[0],lonlim[1]), lat_bin=slice(latlim[0],latlim[1]))
+    h  = oa.get_histogram(pixelsize_m=psize, weights=trajweights
+                          ).sel(lon_bin=slice(lonlim[0],lonlim[1]), lat_bin=slice(latlim[0],latlim[1])
+                          ).sel( time=slice(d0,d1) )
     print( 'h.shape', h.shape )
+
     # Scale by pixel volume to get concentration (atoms/m3)
     h = h / (psize*psize*zmin)
     h = h / 1000.  # Convert to atoms/L
-
-
-    # Filter on time
-    h = h.sel( time=slice(d0, d1) )
 
     print_mem('after histo') 
 
@@ -299,11 +311,10 @@ for isotop in isotops:
         # Plot maps of tracer age integrated over time
         # This is similar for both radionuclides, and 
         # is only nesecary to do for the first radionuclide
-        hage  = oa.get_histogram(pixelsize_m=psize, weights=oa.ds['age_seconds'], density=False).sel(lon_bin=slice(lonlim[0],lonlim[1]), lat_bin=slice(latlim[0],latlim[1]))
-        num   = oa.get_histogram(pixelsize_m=psize, weights=None, density=False).sel(lon_bin=slice(lonlim[0],lonlim[1]), lat_bin=slice(latlim[0],latlim[1]))
+        hage  = oa.get_histogram(pixelsize_m=psize, weights=oa.ds['age_seconds'], density=False).sel(lon_bin=slice(lonlim[0],lonlim[1]), lat_bin=slice(latlim[0],latlim[1])).sel( time=slice(d0, d1))
+        num   = oa.get_histogram(pixelsize_m=psize, weights=None, density=False).sel(lon_bin=slice(lonlim[0],lonlim[1]), lat_bin=slice(latlim[0],latlim[1])).sel( time=slice(d0, d1))
         hage = hage / (86400*365)    # years
         hage = hage / num
-        hage = hage.sel( time=slice(d0, d1))
         maxage=5
         num = None
 
@@ -516,7 +527,6 @@ if not len(h_save)==0:
     r2=r2.isel(time=-1)
 
     ratio = r1 / r2 
-#    ratio = ratio.isel(time=-1)
     ratio = np.log10(ratio)
 
     fn = '../plots/map_isotope1_{}{}.png'.format(isotops[0], tag)
