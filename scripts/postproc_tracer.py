@@ -68,6 +68,7 @@ compute_age = True
 obs_compare = False
 obs_compare = True
 obsfile = '../data/obs_template.csv'
+#obsfile = '../data/obs-compare_tomodel.csv'
 
 
 # ###########################################################################
@@ -137,7 +138,7 @@ oa.ds = oa.ds.where(oa.ds.z > -zmin)
 print_mem('after loading nc file') 
 
 # Read time variable from opendrift nc file
-timefromfile  = np.array([pd.to_datetime(item) for item in oa.ds['time'].values])
+timefromfile  = np.array([pd.to_datetime(item).to_pydatetime() for item in oa.ds['time'].values])
 timedifffromfile = (timefromfile[1] - timefromfile[0])
 
 
@@ -164,9 +165,9 @@ print('timefromfile',timefromfile[0], timefromfile[-1], len(timefromfile))
 
 # Compute number of days and the number of released particles each day
 # Assume equal number for each location 
-print(f'On file   : time range (days): {((datesfromfile[-1]-datesfromfile[0]).total_seconds())/86400}, ntimes: {ntimesfromfile}, first day: {datesfromfile[0]}, last day: {datesfromfile[-1]}, deltat: {timedifffromfile}')
-print(f'Evaluation: first day: {d0}, last day: {d1}')
-print(f'seed_dates: len: {len(seed_dates)}, first day: {seed_dates[0]}, last day: {seed_dates[-1]}')
+print(f'On file   : time range (days): {((datesfromfile[-1]-datesfromfile[0]).total_seconds())/86400}, ntimes: {ntimesfromfile}, first day: {datesfromfile[0]}, last day: {datesfromfile[-1]}, deltat: {timedifffromfile} type: {type(timefromfile[0])}')
+print(f'Evaluation: first day: {d0}, last day: {d1}', type(d0))
+print(f'seed_dates: len: {len(seed_dates)}, first day: {seed_dates[0]}, last day: {seed_dates[-1]} type: {type(seed_dates[0])}')
 ntrajperday = np.zeros(ntimesfromfile)
 for ii,dd in enumerate(timefromfile):
     ntrajperday[ii] = np.sum(seed_dates[:ntraj//2]==dd)
@@ -217,7 +218,7 @@ for isotop in isotops:
     trajweightsLH = np.zeros(ntraj//2)
     nfail=0; noutside=0
     for ii in range(ntraj//2):
-        dd = pd.to_datetime(seed_dates[ii])
+        dd = pd.to_datetime(seed_dates[ii]).to_pydatetime()
         try:
             idx = np.where(timefromfile==dd)[0]
         except Exception:
@@ -344,7 +345,7 @@ for isotop in isotops:
         h_save.append(h)
         h = None
 
-
+    print_mem('end loop')
 
 # #################################################################
 # Compute and plot ratio time series between the isotopes
