@@ -9,24 +9,36 @@ def plot_vertdistr(oa, boxes, vint):
     timedifffromfile = (timefromfile[-1] - timefromfile[0])
     nt = len(timefromfile)
 
-    z = oa.ds.z
-    
-    fig=plt.figure()
-    ax=plt.subplot()
 
-    print(nt, nt//vint)
-    for ii in range(0, nt, nt//vint):
-        tt = timefromfile[ii]
-        print(ii, tt)
-        zu=z.sel(time=tt )
-        hist, bin_edges = np.histogram(zu,bins=np.arange(-100,10,4))
-        bin_centr = (bin_edges[1:]+bin_edges[:-1]) /2
-        ax.plot(hist, bin_centr, label=tt)
-    ax.legend()
-    ax.grid()
-    fn = '../plots/vertical_distribution.png'
-    plt.savefig(fn, dpi=200, bbox_inches='tight')
-    plt.close()
+
+    for box in boxes:
+        print('Vertical profile: ', box['text'], box['lon'], box['lat'])
+        min_lon=box['lon'][0]
+        max_lon=box['lon'][1]
+        min_lat=box['lat'][0]
+        max_lat=box['lat'][1]
+        mask_lon = (oa.ds.lon >= min_lon) & (oa.ds.lon <= max_lon)
+        mask_lat = (oa.ds.lat >= min_lat) & (oa.ds.lat <= max_lat)
+
+        r1 = oa.ds.where(mask_lon & mask_lat)
+        z = r1.z
+
+
+        fig=plt.figure()
+        ax=plt.subplot()
+
+        for ii in range(0, nt, nt//vint):
+            tt = timefromfile[ii]
+            print(ii, tt)
+            zu=z.sel(time=tt )
+            hist, bin_edges = np.histogram(zu,bins=np.arange(-100,10,4))
+            bin_centr = (bin_edges[1:]+bin_edges[:-1]) /2
+            ax.plot(hist, bin_centr, label=tt)
+        ax.legend()
+        ax.grid()
+        fn = '../plots/vertical_distribution_{}.png'.format(box['text'].replace(' ',''))
+        plt.savefig(fn, dpi=200, bbox_inches='tight')
+        plt.close()
 
     return
 
