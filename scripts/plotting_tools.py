@@ -2,6 +2,40 @@ import numpy as np
 import matplotlib.pyplot as plt 
 
 
+def plot_vertdistr(oa, boxes, vint):
+    import pandas as pd
+
+    timefromfile  = np.array([pd.to_datetime(item).to_pydatetime() for item in oa.ds['time'].values])
+    timedifffromfile = (timefromfile[-1] - timefromfile[0])
+    nt = len(timefromfile)
+
+    z = oa.ds.z
+    
+    fig=plt.figure()
+    ax=plt.subplot()
+
+    print(nt, nt//vint)
+    for ii in range(0, nt, nt//vint):
+        tt = timefromfile[ii]
+        print(ii, tt)
+        zu=z.sel(time=tt )
+        hist, bin_edges = np.histogram(zu,bins=np.arange(-100,10,4))
+        bin_centr = (bin_edges[1:]+bin_edges[:-1]) /2
+        ax.plot(hist, bin_centr, label=tt)
+    ax.legend()
+    ax.grid()
+    fn = '../plots/vertical_distribution.png'
+    plt.savefig(fn, dpi=200, bbox_inches='tight')
+    plt.close()
+
+    return
+
+
+
+
+
+
+
 def plot_scatter_obsmodel(obs, mod, isotope, folder, box ):
 
     # observation dates

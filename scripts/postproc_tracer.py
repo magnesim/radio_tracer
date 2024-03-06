@@ -62,6 +62,11 @@ tag = tag+''   # here, you can add specific name tag that will appear in all fil
 
 compute_age = True
 
+plot_vertical_distribution = True
+vdist_int = 10    # number of plotted lines in the 
+                  # plots of vertical distribution 
+                  # distributed over the whole simulation period
+
 
 # ######################################################################
 # O B S E R V A T I O N S
@@ -130,6 +135,9 @@ oa = opendrift.open_xarray(infn)
 #ntra = len(oa.ds.trajectory)
 
 
+if plot_vertical_distribution:
+    from plotting_tools import plot_vertdistr
+    plot_vertdistr(oa, boxes_org, vdist_int)
 
 # Mask on depth 
 # deeper than zmin will be masked out
