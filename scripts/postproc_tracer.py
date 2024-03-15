@@ -296,9 +296,9 @@ for isotop in isotops:
     map_proj = ccrs.Orthographic(2, 65)
 
     sources = ['Sellafield','LaHague','Total']
-    for ii,b in enumerate([h.isel(origin_marker=0).sum(dim='time'), 
-                           h.isel(origin_marker=1).sum(dim='time'), 
-                           h.sum(dim='origin_marker').sum(dim='time') ]):
+    for ii,b in enumerate([h.isel(origin_marker=0).mean(dim='time'), 
+                           h.isel(origin_marker=1).mean(dim='time'), 
+                           h.sum(dim='origin_marker').mean(dim='time') ]):
         fig=plt.figure(figsize=[12,7])
         ax = plt.subplot(projection=map_proj)
         b=np.log10(b)
@@ -379,9 +379,9 @@ if not len(h_save)==0:
         ax3=plt.subplot(4,1,3)
         ax4=plt.subplot(4,1,4)
         # Isotope 1
-        t1 = r1.sel(lon_bin=slice(ibox['lon'][0], ibox['lon'][1]), lat_bin=slice(ibox['lat'][0], ibox['lat'][1])).sum(('lon_bin','lat_bin'))
+        t1 = r1.sel(lon_bin=slice(ibox['lon'][0], ibox['lon'][1]), lat_bin=slice(ibox['lat'][0], ibox['lat'][1])).mean(('lon_bin','lat_bin'))
         # Isotope 2
-        t2 = r2.sel(lon_bin=slice(ibox['lon'][0], ibox['lon'][1]), lat_bin=slice(ibox['lat'][0], ibox['lat'][1])).sum(('lon_bin','lat_bin'))
+        t2 = r2.sel(lon_bin=slice(ibox['lon'][0], ibox['lon'][1]), lat_bin=slice(ibox['lat'][0], ibox['lat'][1])).mean(('lon_bin','lat_bin'))
         # Isotope ratio
         t3 = t1 / t2 
 
