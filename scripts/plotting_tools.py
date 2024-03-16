@@ -48,7 +48,8 @@ def plot_vertdistr(oa, boxes, vint):
 
 
 
-def plot_scatter_obsmodel(obs, mod, isotope, folder, box ):
+def plot_scatter_obsmodel(obs, mod, isotope, folder, box , printtoscreen=False):
+    import pandas as pd
 
     # observation dates
     odate = obs['Date'].to_numpy()
@@ -72,6 +73,13 @@ def plot_scatter_obsmodel(obs, mod, isotope, folder, box ):
     modLH = mod.isel(time=tdate, origin_marker=1)
     modT  = mod.isel(time=tdate).sum(dim='origin_marker')#.astype(float)
 
+
+    obslines= []
+    if printtoscreen:
+        for ii in range(len(tdate)):
+            oline =  '{}; {}; {}; {:.3E}; {:.3E}; {:.3E}; {:.3E}'.format(box, pd.to_datetime(odate[ii]).strftime("%Y-%m-%d"), isotope, oval.values[ii], modT.values[ii], modSF.values[ii], modLH.values[ii])
+            obslines.append(oline)
+
     # plotting
     figs, axs =plt.subplots()
     maxcal = np.maximum( np.max(modT ), np.max(oval) ) * 1.1 
@@ -89,5 +97,5 @@ def plot_scatter_obsmodel(obs, mod, isotope, folder, box ):
     figs.savefig('{}/scatter_{}_{}.png'.format(folder, box, isotope ) )
     plt.close()
 
-    return
+    return obslines
 

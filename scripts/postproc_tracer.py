@@ -62,7 +62,8 @@ tag = tag+''   # here, you can add specific name tag that will appear in all fil
 
 compute_age = True
 
-plot_vertical_distribution = True
+plot_vertical_distribution = False
+#plot_vertical_distribution = True
 vdist_int = 10    # number of plotted lines in the 
                   # plots of vertical distribution 
                   # distributed over the whole simulation period
@@ -74,6 +75,7 @@ obs_compare = False
 obs_compare = True
 obsfile = '../data/obs_template.csv'
 #obsfile = '../data/obs-compare_tomodel.csv'
+modobsoutfile = '../plots/modobsout.csv'
 
 
 # ###########################################################################
@@ -369,6 +371,8 @@ if not len(h_save)==0:
     r2 = h_save[1]
     print_mem('after r1r2')
 
+    obslines = []
+
     # Loop over the selected boxes (locations)
     # Compute time series for each location for each isotope for each source (origin_marker)
     # Plot time series, including total (sum of sources)
@@ -465,14 +469,25 @@ if not len(h_save)==0:
         if obs_compare:
             # Compare obs with nearest model value
             from plotting_tools import plot_scatter_obsmodel
-            plot_scatter_obsmodel(obs_iodine, t1, isotope='129I', folder='../plots', box=ibox['text'].replace(' ',''))
-            plot_scatter_obsmodel(obs_uran, t2, isotope='236U', folder='../plots', box=ibox['text'].replace(' ',''))
-            plot_scatter_obsmodel(obs_ratio, t3, isotope='ratio', folder='../plots', box=ibox['text'].replace(' ',''))
+            oline = plot_scatter_obsmodel(obs_iodine, t1, isotope='129I', folder='../plots', box=ibox['text'].replace(' ',''), printtoscreen=True)
+            obslines.append(oline)
+            oline = plot_scatter_obsmodel(obs_uran, t2, isotope='236U', folder='../plots', box=ibox['text'].replace(' ',''), printtoscreen=True)
+            obslines.append(oline)
+            oline = plot_scatter_obsmodel(obs_ratio, t3, isotope='ratio', folder='../plots', box=ibox['text'].replace(' ',''), printtoscreen=True)
+            obslines.append(oline)
 
 
+if obs_compare:
 
-
-
+    # Open the file in write mode ('w')
+    with open(modobsoutfile, 'w') as file:
+        # Write header to the file
+        file.write('box; date; isotope; obs; Total; SF; LH\n')
+        for iline in obslines:
+            if not iline==None:
+                for jline in iline:
+                    file.write(jline+'\n')
+    print('Obs-mod output written to ',modobsoutfile)
 
 
 
