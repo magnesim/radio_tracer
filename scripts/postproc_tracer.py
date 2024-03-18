@@ -60,7 +60,8 @@ zmin = 100
 tag = '_{}m'.format(zmin)
 tag = tag+''   # here, you can add specific name tag that will appear in all file names
 
-compute_age = True
+compute_age = False
+#compute_age = True
 
 plot_vertical_distribution = False
 #plot_vertical_distribution = True
@@ -388,6 +389,8 @@ if not len(h_save)==0:
         t2 = r2.sel(lon_bin=slice(ibox['lon'][0], ibox['lon'][1]), lat_bin=slice(ibox['lat'][0], ibox['lat'][1])).mean(('lon_bin','lat_bin'))
         # Isotope ratio
         t3 = t1 / t2 
+        # ratio of the total concentration
+        t4 = t1.sum(dim='origin_marker') / t2.sum(dim='origin_marker')
 
         # Isotope 1
         t1.isel(origin_marker=0).plot(label=isotops_fmt[isotops[0]]+' SF',ax=ax1)
@@ -400,7 +403,7 @@ if not len(h_save)==0:
         # Isotope ratio
         t3.isel(origin_marker=0).plot(label=ratstr+' SF',ax=ax3)
         t3.isel(origin_marker=1).plot(label=ratstr+' LH',ax=ax3)
-        t3.sum(dim='origin_marker').plot(label=ratstr+' total',ax=ax3)
+        t4.plot(label=ratstr+' total',ax=ax3)
         # Source contribution 129I
         t4SF = t1.isel(origin_marker=0) / t1.sum(dim='origin_marker')*100.
         t4LH = t1.isel(origin_marker=1) / t1.sum(dim='origin_marker')*100.
@@ -442,7 +445,6 @@ if not len(h_save)==0:
             obs_ratio = obsdata[ (obsdata['129I Concentration (at/L)']!='Nan') & (obsdata['236U Concentration (at/L)']!='Nan') ]
             ratio = obs_ratio['129I Concentration (at/L)'].astype(float) /  obs_ratio['236U Concentration (at/L)'].astype(float)
 
-
             # Plot with the time series
             print('{:22} {:6}; N obs: {}'.format(ibox['text'], isotops[0], len(obs_iodine['129I Concentration (at/L)'])))
             p1= ax1.plot(obs_iodine['Date'], obs_iodine['129I Concentration (at/L)'].astype(float), ls='none', marker='o', markeredgecolor='k', markerfacecolor='none', label='obs {}'.format(isotops_fmt[isotops[0]]))
@@ -473,7 +475,7 @@ if not len(h_save)==0:
             obslines.append(oline)
             oline = plot_scatter_obsmodel(obs_uran, t2, isotope='236U', folder='../plots', box=ibox['text'].replace(' ',''), printtoscreen=True)
             obslines.append(oline)
-            oline = plot_scatter_obsmodel(obs_ratio, t3, isotope='ratio', folder='../plots', box=ibox['text'].replace(' ',''), printtoscreen=True)
+            oline = plot_scatter_obsmodel(obs_ratio, t3, isotope='ratio', ratiosum = t4, folder='../plots', box=ibox['text'].replace(' ',''), printtoscreen=True)
             obslines.append(oline)
 
 

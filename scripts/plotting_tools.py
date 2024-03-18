@@ -48,7 +48,7 @@ def plot_vertdistr(oa, boxes, vint):
 
 
 
-def plot_scatter_obsmodel(obs, mod, isotope, folder, box , printtoscreen=False):
+def plot_scatter_obsmodel(obs, mod, isotope, folder, box , printtoscreen=False, ratiosum=False):
     import pandas as pd
 
     # observation dates
@@ -71,7 +71,10 @@ def plot_scatter_obsmodel(obs, mod, isotope, folder, box , printtoscreen=False):
     # model values at obs dates
     modSF = mod.isel(time=tdate, origin_marker=0)
     modLH = mod.isel(time=tdate, origin_marker=1)
-    modT  = mod.isel(time=tdate).sum(dim='origin_marker')#.astype(float)
+    if isotope=='ratio':
+        modT = ratiosum.isel(time=tdate)
+    else:
+        modT  = mod.isel(time=tdate).sum(dim='origin_marker')#.astype(float)
 
 
     obslines= []
