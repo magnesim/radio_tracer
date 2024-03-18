@@ -7,6 +7,7 @@ from release_descriptions import monthly_release, get_daily_weights, get_seed_da
 import matplotlib.pyplot as plt 
 
 import cartopy.crs as ccrs
+from cartopy import feature as cfeature
 import pandas as pd 
 
 import tracemalloc
@@ -61,7 +62,7 @@ tag = '_{}m'.format(zmin)
 tag = tag+''   # here, you can add specific name tag that will appear in all file names
 
 compute_age = False
-#compute_age = True
+compute_age = True
 
 plot_vertical_distribution = False
 #plot_vertical_distribution = True
@@ -306,9 +307,10 @@ for isotop in isotops:
         ax = plt.subplot(projection=map_proj)
         b=np.log10(b)
         LONS, LATS = np.meshgrid(b['lon_bin'], b['lat_bin'])
-        m1 = ax.pcolormesh(LONS,LATS, b.transpose(), vmin=vminconc, vmax=vmaxconc,  cmap='plasma' , shading='nearest', transform=proj_pp)
-        ax.coastlines()
-        ax.gridlines()
+        m1 = ax.pcolormesh(LONS,LATS, b.transpose(), vmin=vminconc, vmax=vmaxconc,  cmap='plasma' , shading='nearest', transform=proj_pp, zorder=4)
+        ax.coastlines(zorder=6)
+        ax.gridlines(zorder=7)
+        ax.add_feature(cfeature.LAND, zorder=5)
         cb=plt.colorbar(m1, label='log10 {} Concentration (at/L)'.format(isotops_fmt[isotop]))
         ax.set_title(isotops_fmt[isotop]+' '+sources[ii])
         fn = '../plots/tracer_{}_{}{}.png'.format(sources[ii], isotop,tag)
@@ -336,9 +338,10 @@ for isotop in isotops:
             fig=plt.figure(figsize=[12,7])
             ax = plt.subplot(projection=map_proj)
             LONS, LATS = np.meshgrid(b['lon_bin'], b['lat_bin'])
-            m1 = ax.pcolormesh(LONS,LATS, b.transpose(), vmin=0, vmax=maxage, cmap='rainbow', shading='nearest', transform=proj_pp)
-            ax.coastlines()
-            ax.gridlines()
+            m1 = ax.pcolormesh(LONS,LATS, b.transpose(), vmin=0, vmax=maxage, cmap='rainbow', shading='nearest', transform=proj_pp, zorder=4)
+            ax.coastlines(zorder=6)
+            ax.gridlines(zorder=7)
+            ax.add_feature(cfeature.LAND,zorder=5)
             cb=plt.colorbar(m1, label='Age {} (years)'.format(isotops_fmt[isotop]))
             ax.set_title(isotops_fmt[isotop]+' '+sources[ii])
             fn = '../plots/tracerage_{}_{}{}.png'.format(sources[ii], isotop,tag)
