@@ -102,3 +102,62 @@ def plot_scatter_obsmodel(obs, mod, isotope, folder, box , printtoscreen=False, 
 
     return obslines
 
+
+
+
+
+
+def plot_diffratio(data, isotop=None, sources=None, isofmt=None, tag='', vmaxd=None, vmaxr=None):
+    import cartopy.crs as ccrs
+    from cartopy import feature as cfeature
+    
+    map_proj = ccrs.Orthographic(2, 65)
+    proj_pp=ccrs.PlateCarree()
+
+
+    if vmaxd==None:
+        vmaxdiff = 1e8
+        vmindiff = -vmaxdiff
+    else:
+        vmindiff = -vmaxd
+        vmaxdiff = vmaxd
+    if vmaxr==None:
+        vmaxrat = 4
+        vminrat = -vmaxrat
+    else:
+        vminrat = -vmaxr
+        vmaxrat = vmaxr
+
+    print('plotting diff and ratio for ',isotop, isofmt[isotop])
+    print('Diff: {} - {} '.format(sources[0], sources[1]))
+    print('Ratio: {} / {} '.format(sources[0], sources[1]))
+
+    fig=plt.figure(figsize=[16,7])
+    ax1 = plt.subplot(1,2,1, projection=map_proj)
+    ax2 = plt.subplot(1,2,2, projection=map_proj)
+    #b=np.log10(b)
+    LONS, LATS = np.meshgrid(data['lon_bin'], data['lat_bin'])
+
+    # diff plot
+    diff = data.isel(origin_marker=0) - data.isel(origin_marker=1)
+    m1 = ax1.pcolormesh(LONS,LATS, diff.transpose(), vmin=vmindiff, vmax=vmaxdiff,  cmap='RdBu' , shading='nearest', transform=proj_pp, zorder=4)
+    cb=plt.colorbar(m1, label='Diff {} Concentration (at/L)'.format(isofmt[isotop]))
+    ax1.set_title(isofmt[isotop]+' Diff '+sources[0]+' - '+sources[1])
+
+    # ratio plot
+    ratio = np.log10( data.isel(origin_marker=0) / data.isel(origin_marker=1))
+    m2 = ax2.pcolormesh(LONS,LATS, ratio.transpose(), vmin=vminrat, vmax=vmaxrat,  cmap='RdBu' , shading='nearest', transform=proj_pp, zorder=4)
+    cb=plt.colorbar(m2, label='log10(Ratio) {} Concentration (at/L)'.format(isofmt[isotop]))
+    ax2.set_title(isofmt[isotop]+' Ratio '+sources[0]+' / '+sources[1])
+
+    for ax in [ax1,ax2]:
+        ax.coastlines(zorder=6)
+        ax.gridlines(zorder=7)
+        ax.add_feature(cfeature.LAND, zorder=5)
+    
+    fn = '../plots/tracerdiffratio_{}{}.png'.format( isotop,tag)
+    fig.savefig(fn, dpi=290)
+    plt.close(fig)
+
+
+    return

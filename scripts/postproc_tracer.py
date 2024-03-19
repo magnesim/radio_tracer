@@ -11,7 +11,7 @@ from cartopy import feature as cfeature
 import pandas as pd 
 
 import tracemalloc
-
+from plotting_tools import plot_diffratio
 
 
 
@@ -317,7 +317,15 @@ for isotop in isotops:
         fig.savefig(fn)
         plt.close(fig)
 
+    if isotop=='129I':
+        dmax=1e8
+        rmax=3
+    elif isotop=='236U':
+        dmax=1e5
+        rmax=3
 
+    xx = plot_diffratio(h.mean(dim='time'), isotop=isotop, sources=['Sellafield', 'LaHague'], isofmt=isotops_fmt, 
+                        vmaxd=dmax, vmaxr=rmax)
 
 
     if compute_age and isotop == isotops[0]:
