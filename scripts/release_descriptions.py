@@ -77,10 +77,12 @@ def monthly_release(isotop=None, dates=None, location=None):
         exit()
     date_arr = np.array([datetime.strptime(str(item), '%Y%m%d') for item in df["Dato (YYYYMMDD)"] ])
     rel1 = np.array([item for item in df["Number of Atoms"]])
+    
 
-    date_arr = date_arr[np.where((date_arr>=dates[0]) & (date_arr<=dates[1]))]    
-    rel1 = rel1[np.where((date_arr>=dates[0]) & (date_arr<=dates[1]))]
-
+    # Select days between dates[0] and dates[1]
+    sel0 = np.where((date_arr>=dates[0]) & (date_arr<=dates[1]))
+    date_arr = date_arr[sel0]
+    rel1     = rel1[sel0]
 
 
     return date_arr, rel1 
