@@ -167,8 +167,8 @@ timedifffromfile = (timefromfile[1] - timefromfile[0])
 
 [seed_dates, datesfromfile, ntraj] = get_seed_date(infn)
 [d0,d1] = datesfromfile
-d0 = datetime(1994,1,1)
-d1 = datetime(1995,2,28)
+#d0 = datetime(1994,1,1)
+#d1 = datetime(1995,2,28)
 
 #timefromfile=timefromfile[(timefromfile>=d0) & (timefromfile<=d1)]
 ntimesfromfile = len(timefromfile)
@@ -368,6 +368,7 @@ for isotop in isotops:
         h = None
 
     print_mem('end loop')
+plt.close(fig0)
 
 # #################################################################
 # Compute and plot ratio time series between the isotopes
@@ -529,12 +530,16 @@ if compute_age and not len(h_save)==0:
         #t1std.isel(origin_marker=0).plot(label=isotops[0]+' std SF',ax=ax1)
         t1.isel(origin_marker=1).plot(label=isotops_fmt[isotops[0]]+' LH',ax=ax1)
         t1.mean(dim='origin_marker').plot(label=isotops_fmt[isotops[0]]+' total',ax=ax1)
+        #tot = t1.mean(dim='origin_marker')
+        #totconv = np.convolve(tot, np.ones(len(tot))/(len(tot)), mode='valid')
+
 
         ax1.set_title(isotops_fmt[isotops[0]]+' age')
         for ax in [ax1]:
             ax.legend()
             ax.grid()
             ax.set_xlim([d0,d1])
+            ax.set_ylabel('Age (years)')
         plt.suptitle(ibox['text'])
         fn = '../plots/location_agets_{}{}.png'.format(ibox['text'].replace(' ',''), tag)
         plt.savefig(fn)
@@ -554,29 +559,41 @@ if not len(h_save)==0:
     ratstr = isotops_fmt[isotops[0]]+'/'+isotops_fmt[isotops[1]]
     print('Compute isotope ratio '+ratstr)
 
-    r1 = h_save[0]
-    r1 = r1.sum(dim='origin_marker')
+    r1   = h_save[0]
+    r1T  = r1.sum(dim='origin_marker').mean(dim='time')
+    r1SF = r1.isel(origin_marker=0).mean(dim='time')
+    r1LH = r1.isel(origin_marker=1).mean(dim='time')
 
-    r2 = h_save[1]
-    r2 = r2.sum(dim='origin_marker')
+    r2   = h_save[1]
+    r2T  = r2.sum(dim='origin_marker').mean(dim='time')
+    r2SF = r2.isel(origin_marker=0).mean(dim='time')
+    r2LH = r2.isel(origin_marker=1).mean(dim='time')
 
-    r1=r1.isel(time=-1)
-    r2=r2.isel(time=-1)
 
-    ratio = r1 / r2 
-    ratio = np.log10(ratio)
+    for ii, [r1,r2] in enumerate([[r1SF,r2SF], [r1LH,r2LH], [r1T,r2T]]):
 
-    fn = '../plots/map_isotope1_{}{}.png'.format(isotops[0], tag)
-    oa.plot(background=r1.where(r1>0), corners=[lonlim[0], lonlim[1], latlim[0], latlim[1]], fast=True, show_elements=False, vmin=0, vmax=20000, clabel = 'r1 '+isotops[0], filename=fn)
-    fn = '../plots/map_isotope2_{}{}.png'.format(isotops[1], tag)
-    oa.plot(background=r2.where(r2>0), corners=[lonlim[0], lonlim[1], latlim[0], latlim[1]], fast=True, show_elements=False, vmin=0, vmax=6000, clabel = 'r2 '+isotops[1], filename=fn)
+        ratio = r1 / r2 
+        ratio = np.log10(ratio)
 
-    fn = '../plots/map_ratio{}.png'.format(tag)
-    oa.plot(background=ratio.where(ratio>-19), corners=[lonlim[0], lonlim[1], latlim[0], latlim[1]], fast=True, show_elements=False, vmin=-2, vmax=3, clabel = 'log10 ratio '+ratstr, filename=fn)
+        fig=plt.figure(figsize=[12,7])
+        ax = plt.subplot(projection=map_proj)
+        LONS, LATS = np.meshgrid(ratio['lon_bin'], ratio['lat_bin'])
+        m1 = ax.pcolormesh(LONS,LATS, ratio.transpose(), vmin=1, vmax=4,  cmap='plasma' , shading='nearest', transform=proj_pp, zorder=4)
+        ax.coastlines(zorder=6)
+        ax.gridlines(zorder=7)
+        ax.add_feature(cfeature.LAND, zorder=5)
+        cb=plt.colorbar(m1, label='log10 ratio {}'.format(ratstr))
+        #ax.set_title(isotops_fmt[isotop]+' '+sources[ii])
+        fn = '../plots/tracer_ratio_{}{}.png'.format(sources[ii],tag)
+        fig.savefig(fn)
+        plt.close(fig)
+
+        ratio=None
+
+
 
     r1=None
     r2=None
-    ratio=None
 
 # for om in [0, 1]:
 #     background=h.isel(origin_marker=om)
