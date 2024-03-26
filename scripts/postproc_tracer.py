@@ -336,13 +336,16 @@ for isotop in isotops:
         hage  = oa.get_histogram(pixelsize_m=psize, weights=oa.ds['age_seconds'], density=False).sel(lon_bin=slice(lonlim[0],lonlim[1]), lat_bin=slice(latlim[0],latlim[1])).sel( time=slice(d0, d1))
         num   = oa.get_histogram(pixelsize_m=psize, weights=None, density=False).sel(lon_bin=slice(lonlim[0],lonlim[1]), lat_bin=slice(latlim[0],latlim[1])).sel( time=slice(d0, d1))
         hage = hage / (86400*365)    # years
-        hage = hage / num
+        hageSF = hage.isel(origin_marker=0) / num.isel(origin_marker=0)
+        hageLH = hage.isel(origin_marker=1) / num.isel(origin_marker=1)
+        hageT  = hage.sum(dim='origin_marker') / num.sum(dim='origin_marker')
         maxage=5
-        num = None
+        hage = None
+        num  = None
 
-        for ii,b in enumerate([hage.isel(origin_marker=0).mean(dim='time'), 
-                            hage.isel(origin_marker=1).mean(dim='time'), 
-                            hage.mean(dim='origin_marker').mean(dim='time') ]):
+        for ii,b in enumerate([hageSF.mean(dim='time'), 
+                            hageLH.mean(dim='time'), 
+                            hageT.mean(dim='time') ]):
             fig=plt.figure(figsize=[12,7])
             ax = plt.subplot(projection=map_proj)
             LONS, LATS = np.meshgrid(b['lon_bin'], b['lat_bin'])
@@ -490,6 +493,8 @@ if not len(h_save)==0:
             oline = plot_scatter_obsmodel(obs_ratio, t3, isotope='ratio', ratiosum = t4, folder='../plots', box=ibox['text'].replace(' ',''), printtoscreen=True)
             obslines.append(oline)
 
+    r1=None
+    r2=None
 
 if obs_compare:
 
@@ -512,7 +517,6 @@ if compute_age and not len(h_save)==0:
     print('Compute mean age '+ratstr)
 
     # Isotope 1
-    r1 = hage
 
     # Loop over the selected boxes (locations)
     # Compute time series for each location for each isotope for each source (origin_marker)
@@ -521,16 +525,16 @@ if compute_age and not len(h_save)==0:
         fig=plt.figure(figsize=[9,7])
         ax1=plt.subplot(1,1,1)
         # Isotope 1
-        t1 = r1.sel(lon_bin=slice(ibox['lon'][0], ibox['lon'][1]), lat_bin=slice(ibox['lat'][0], ibox['lat'][1])).mean(('lon_bin','lat_bin'))
+        t1SF = hageSF.sel(lon_bin=slice(ibox['lon'][0], ibox['lon'][1]), lat_bin=slice(ibox['lat'][0], ibox['lat'][1])).mean(('lon_bin','lat_bin'))
+        t1LH = hageLH.sel(lon_bin=slice(ibox['lon'][0], ibox['lon'][1]), lat_bin=slice(ibox['lat'][0], ibox['lat'][1])).mean(('lon_bin','lat_bin'))
+        t1T  = hageT.sel(lon_bin=slice(ibox['lon'][0], ibox['lon'][1]), lat_bin=slice(ibox['lat'][0], ibox['lat'][1])).mean(('lon_bin','lat_bin'))
 #        t1std = r1.sel(lon_bin=slice(ibox['lon'][0], ibox['lon'][1]), lat_bin=slice(ibox['lat'][0], ibox['lat'][1])).std(('lon_bin','lat_bin'))
 #        t1std = t1std+t1
 
         # Isotope 1
-        t1.isel(origin_marker=0).plot(label=isotops_fmt[isotops[0]]+' SF',ax=ax1)
-        #t1std.isel(origin_marker=0).plot(label=isotops[0]+' std SF',ax=ax1)
-        t1.isel(origin_marker=1).plot(label=isotops_fmt[isotops[0]]+' LH',ax=ax1)
-        t1.mean(dim='origin_marker').plot(label=isotops_fmt[isotops[0]]+' total',ax=ax1)
-        #tot = t1.mean(dim='origin_marker')
+        t1SF.plot(label=isotops_fmt[isotops[0]]+' SF',ax=ax1)
+        t1LH.plot(label=isotops_fmt[isotops[0]]+' LH',ax=ax1)
+        t1T.plot(label=isotops_fmt[isotops[0]]+' total',ax=ax1)
         #totconv = np.convolve(tot, np.ones(len(tot))/(len(tot)), mode='valid')
 
 
@@ -544,7 +548,6 @@ if compute_age and not len(h_save)==0:
         fn = '../plots/location_agets_{}{}.png'.format(ibox['text'].replace(' ',''), tag)
         plt.savefig(fn)
         plt.close()
-    r1=None
 
 
 
