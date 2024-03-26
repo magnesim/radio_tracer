@@ -48,7 +48,7 @@ def plot_vertdistr(oa, boxes, vint):
 
 
 
-def plot_scatter_obsmodel(obs, mod, isotope, folder, box , printtoscreen=False, ratiosum=False):
+def plot_scatter_obsmodel(obs, mod, isotope, folder, box , printtoscreen=False, ratiosum=False, tag=''):
     import pandas as pd
 
     # observation dates
@@ -97,7 +97,7 @@ def plot_scatter_obsmodel(obs, mod, isotope, folder, box , printtoscreen=False, 
     axs.legend()
     axs.grid()
     axs.set_title(box+' '+isotope)
-    figs.savefig('{}/scatter_{}_{}.png'.format(folder, box, isotope ) )
+    figs.savefig('{}/scatter_{}_{}{}.png'.format(folder, box, isotope, tag ) )
     plt.close()
 
     return obslines
@@ -107,7 +107,7 @@ def plot_scatter_obsmodel(obs, mod, isotope, folder, box , printtoscreen=False, 
 
 
 
-def plot_diffratio(data, isotop=None, sources=None, isofmt=None, tag='', vmaxd=None, vmaxr=None):
+def plot_diffratio(data, isotop=None, sources=None, isofmt=None, tag='', vmaxd=None, vmaxr=None, datestr=''):
     import cartopy.crs as ccrs
     from cartopy import feature as cfeature
     
@@ -149,7 +149,7 @@ def plot_diffratio(data, isotop=None, sources=None, isofmt=None, tag='', vmaxd=N
     m2 = ax2.pcolormesh(LONS,LATS, ratio.transpose(), vmin=vminrat, vmax=vmaxrat,  cmap='RdBu' , shading='nearest', transform=proj_pp, zorder=4)
     cb=plt.colorbar(m2, label='log10(Ratio) {} Concentration (at/L)'.format(isofmt[isotop]))
     ax2.set_title(isofmt[isotop]+' Ratio '+sources[0]+' / '+sources[1])
-
+    plt.suptitle(datestr)
     for ax in [ax1,ax2]:
         ax.coastlines(zorder=6)
         ax.gridlines(zorder=7)
@@ -161,3 +161,54 @@ def plot_diffratio(data, isotop=None, sources=None, isofmt=None, tag='', vmaxd=N
 
 
     return
+
+
+
+def running_mean_over_time(dataset, window):
+    import xarray as xr
+    """
+    Compute a running mean over the time dimension of a given xarray dataset.
+
+    Parameters:
+    - dataset (xarray.Dataset or xarray.DataArray): Input dataset.
+    - window (int): Size of the rolling window.
+
+    Returns:
+    - xarray.Dataset or xarray.DataArray: Dataset or DataArray with running mean applied.
+    """
+    # Check if dataset is a DataArray
+    if isinstance(dataset, xr.DataArray):
+        return dataset.rolling(time=window, min_periods=1, center=True).mean()
+    # Check if dataset is a Dataset
+    elif isinstance(dataset, xr.Dataset):
+        return dataset.apply(lambda x: x.rolling(time=window, min_periods=1, center=True).mean(), keep_attrs=True)
+    else:
+        raise TypeError("Input must be an xarray.Dataset or xarray.DataArray")
+
+# Example usage:
+# Assuming 'ds' is your xarray dataset
+# running_mean_ds = running_mean_over_time(ds, window=3)
+
+
+
+def xarray_datasets_to_csv(datasets, output_file):
+    import pandas as pd
+    """
+    Write a number of xarray datasets, all at the same format as columns, to a CSV file.
+
+    Parameters:
+    - datasets (dict): Dictionary of xarray datasets with keys as column names.
+    - output_file (str): Output CSV file path.
+    """
+    # Convert xarray datasets to pandas DataFrames
+    dataframes = {name: ds.to_dataframe() for name, ds in datasets.items()}
+    
+    # Merge DataFrames on the index (time dimension assumed)
+    merged_dataframe = pd.concat(dataframes, axis=1)
+    
+    # Write merged DataFrame to CSV
+    merged_dataframe.to_csv(output_file)
+
+# Example usage:
+# Assuming 'datasets' is a dictionary containing xarray datasets
+# xarray_datasets_to_csv(datasets, "output.csv")

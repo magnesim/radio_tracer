@@ -11,7 +11,7 @@ from cartopy import feature as cfeature
 import pandas as pd 
 
 import tracemalloc
-from plotting_tools import plot_diffratio
+from plotting_tools import plot_diffratio, running_mean_over_time, xarray_datasets_to_csv
 
 
 
@@ -34,7 +34,7 @@ tracemalloc.start()
 #infn = '/home/magnes/projects/CERAD/RadioTracer/model_output/opendrift_tracers_1993-1997_svim.nc'
 #infn = '/home/magnes/projects/CERAD/RadioTracer/model_output/opendrift_tracers_1993-1997_cmems.nc'
 infn = '/home/magnes/projects/CERAD/RadioTracer/model_output/opendrift_tracers_10d.nc'
-
+sm_win=30
 
 # Select isotopes
 isotops  = [
@@ -284,6 +284,7 @@ for isotop in isotops:
     # Scale by pixel volume to get concentration (atoms/m3)
     h = h / (psize*psize*zmin)
     h = h / 1000.  # Convert to atoms/L
+    h.name = 'radionuclide concentration (at/L)'
 
     print_mem('after histo') 
 
@@ -312,7 +313,7 @@ for isotop in isotops:
         ax.gridlines(zorder=7)
         ax.add_feature(cfeature.LAND, zorder=5)
         cb=plt.colorbar(m1, label='log10 {} Concentration (at/L)'.format(isotops_fmt[isotop]))
-        ax.set_title(isotops_fmt[isotop]+' '+sources[ii])
+        ax.set_title(isotops_fmt[isotop]+' '+sources[ii]+' '+tag+'\n'+d0.strftime("%Y%m%d")+' '+d1.strftime("%Y%m%d"))
         fn = '../plots/tracer_{}_{}{}.png'.format(sources[ii], isotop,tag)
         fig.savefig(fn)
         plt.close(fig)
@@ -325,7 +326,7 @@ for isotop in isotops:
         rmax=3
 
     xx = plot_diffratio(h.mean(dim='time'), isotop=isotop, sources=['Sellafield', 'LaHague'], isofmt=isotops_fmt, 
-                        vmaxd=dmax, vmaxr=rmax)
+                        vmaxd=dmax, vmaxr=rmax, tag=tag, datestr=d0.strftime('%Y%m%d')+' '+d1.strftime('%Y%m%d'))
 
 
     if compute_age and isotop == isotops[0]:
@@ -334,11 +335,15 @@ for isotop in isotops:
         # This is similar for both radionuclides, and 
         # is only nesecary to do for the first radionuclide
         hage  = oa.get_histogram(pixelsize_m=psize, weights=oa.ds['age_seconds'], density=False).sel(lon_bin=slice(lonlim[0],lonlim[1]), lat_bin=slice(latlim[0],latlim[1])).sel( time=slice(d0, d1))
+        hage.name = 'particle age'
         num   = oa.get_histogram(pixelsize_m=psize, weights=None, density=False).sel(lon_bin=slice(lonlim[0],lonlim[1]), lat_bin=slice(latlim[0],latlim[1])).sel( time=slice(d0, d1))
         hage = hage / (86400*365)    # years
         hageSF = hage.isel(origin_marker=0) / num.isel(origin_marker=0)
         hageLH = hage.isel(origin_marker=1) / num.isel(origin_marker=1)
         hageT  = hage.sum(dim='origin_marker') / num.sum(dim='origin_marker')
+        hageSF.name = 'particle age'
+        hageLH.name = 'particle age'
+        hageT.name = 'particle age'
         maxage=5
         hage = None
         num  = None
@@ -353,9 +358,9 @@ for isotop in isotops:
             ax.coastlines(zorder=6)
             ax.gridlines(zorder=7)
             ax.add_feature(cfeature.LAND,zorder=5)
-            cb=plt.colorbar(m1, label='Age {} (years)'.format(isotops_fmt[isotop]))
-            ax.set_title(isotops_fmt[isotop]+' '+sources[ii])
-            fn = '../plots/tracerage_{}_{}{}.png'.format(sources[ii], isotop,tag)
+            cb=plt.colorbar(m1, label='Age (years)')
+            ax.set_title('Tracer age '+sources[ii]+' '+tag+'\n'+d0.strftime("%Y%m%d")+' '+d1.strftime("%Y%m%d"))
+            fn = '../plots/tracerage_{}_{}.png'.format(sources[ii],tag)
             fig.savefig(fn)
             plt.close()
 
@@ -455,9 +460,9 @@ if not len(h_save)==0:
             obsdata = obsdata[ np.abs(obsdata['Depth'])<=np.abs(zmin) ]
             
             # Pick out only iodine / uranium observations, and compute ratio where both nuclides are present
-            obs_iodine = obsdata[obsdata['129I Concentration (at/L)']!='Nan']
-            obs_uran = obsdata[obsdata['236U Concentration (at/L)']!='Nan']
-            obs_ratio = obsdata[ (obsdata['129I Concentration (at/L)']!='Nan') & (obsdata['236U Concentration (at/L)']!='Nan') ]
+            obs_iodine = obsdata[obsdata['129I Concentration (at/L)'].str.casefold() != 'nan']
+            obs_uran = obsdata[obsdata['236U Concentration (at/L)'].str.casefold() != 'nan']
+            obs_ratio = obsdata[ (obsdata['129I Concentration (at/L)'].str.casefold() != 'nan') & (obsdata['236U Concentration (at/L)'].str.casefold() != 'nan') ]
             ratio = obs_ratio['129I Concentration (at/L)'].astype(float) /  obs_ratio['236U Concentration (at/L)'].astype(float)
 
             # Plot with the time series
@@ -477,7 +482,7 @@ if not len(h_save)==0:
         ax3.set_ylabel('ratio')
         ax4.set_ylabel('percent')
         ax3.set_yscale('log')
-        plt.suptitle(ibox['text'])
+        plt.suptitle(ibox['text']+' '+tag)
         fn = '../plots/location_ts_{}{}.png'.format(ibox['text'].replace(' ',''), tag)
         plt.savefig(fn)
         plt.close()
@@ -486,11 +491,11 @@ if not len(h_save)==0:
         if obs_compare:
             # Compare obs with nearest model value
             from plotting_tools import plot_scatter_obsmodel
-            oline = plot_scatter_obsmodel(obs_iodine, t1, isotope='129I', folder='../plots', box=ibox['text'].replace(' ',''), printtoscreen=True)
+            oline = plot_scatter_obsmodel(obs_iodine, t1, isotope='129I', folder='../plots', box=ibox['text'].replace(' ',''), printtoscreen=True, tag=tag)
             obslines.append(oline)
-            oline = plot_scatter_obsmodel(obs_uran, t2, isotope='236U', folder='../plots', box=ibox['text'].replace(' ',''), printtoscreen=True)
+            oline = plot_scatter_obsmodel(obs_uran, t2, isotope='236U', folder='../plots', box=ibox['text'].replace(' ',''), printtoscreen=True, tag=tag)
             obslines.append(oline)
-            oline = plot_scatter_obsmodel(obs_ratio, t3, isotope='ratio', ratiosum = t4, folder='../plots', box=ibox['text'].replace(' ',''), printtoscreen=True)
+            oline = plot_scatter_obsmodel(obs_ratio, t3, isotope='ratio', ratiosum = t4, folder='../plots', box=ibox['text'].replace(' ',''), printtoscreen=True, tag=tag)
             obslines.append(oline)
 
     r1=None
@@ -532,13 +537,22 @@ if compute_age and not len(h_save)==0:
 #        t1std = t1std+t1
 
         # Isotope 1
-        t1SF.plot(label=isotops_fmt[isotops[0]]+' SF',ax=ax1)
-        t1LH.plot(label=isotops_fmt[isotops[0]]+' LH',ax=ax1)
-        t1T.plot(label=isotops_fmt[isotops[0]]+' total',ax=ax1)
-        #totconv = np.convolve(tot, np.ones(len(tot))/(len(tot)), mode='valid')
+        t1SF.plot(c='C0', lw=.2, ax=ax1)
+        t1LH.plot(c='C1', lw=.2, ax=ax1)
+        t1T.plot(c='C2', lw=.2, ax=ax1)
 
 
-        ax1.set_title(isotops_fmt[isotops[0]]+' age')
+        rm_t1SF = running_mean_over_time(t1SF, sm_win)
+        rm_t1LH = running_mean_over_time(t1LH, sm_win)
+        rm_t1T = running_mean_over_time(t1T, sm_win)
+        rm_t1SF.plot(c='C0', label = ' Sellafield',ax=ax1)
+        rm_t1LH.plot(c='C1', label = ' LaHague',ax=ax1)
+        rm_t1T.plot(c='C2', label = ' Total',ax=ax1)
+        (rm_t1SF-rm_t1LH).plot(c='C3', ls='--', label='diff SF-LH', ax=ax1)
+
+        xarray_datasets_to_csv({'SF': rm_t1SF, 'LH': rm_t1LH, 'tot': rm_t1T }, '../plots/agets_{}{}.csv'.format(ibox['text'].replace(' ',''),tag))
+
+
         for ax in [ax1]:
             ax.legend()
             ax.grid()
@@ -585,8 +599,8 @@ if not len(h_save)==0:
         ax.coastlines(zorder=6)
         ax.gridlines(zorder=7)
         ax.add_feature(cfeature.LAND, zorder=5)
-        cb=plt.colorbar(m1, label='log10 ratio {}'.format(ratstr))
-        #ax.set_title(isotops_fmt[isotop]+' '+sources[ii])
+        cb=plt.colorbar(m1, label='log10(ratio) ')
+        ax.set_title(f'Ratio '+ratstr+' '+sources[ii]+' '+tag+'\n'+d0.strftime("%Y%m%d")+' '+d1.strftime("%Y%m%d"))
         fn = '../plots/tracer_ratio_{}{}.png'.format(sources[ii],tag)
         fig.savefig(fn)
         plt.close(fig)
